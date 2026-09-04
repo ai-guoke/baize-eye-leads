@@ -1,0 +1,58 @@
+# Apache Doris 单机版（1 FE + 1 BE），用于本机开发与数据装载。
+# 数据落在 F:/doris（纯英文路径，避免 Docker 挂载中文路径的问题）。
+#
+#   docker compose up -d
+#   docker compose logs -f be
+#
+# 前置：宿主机 vm.max_map_count >= 2000000，见同目录 setup-host.ps1
+name: qcc
+
+services:
+  fe:
+    image: apache/doris:fe-3.1.4
+    container_name: qcc-doris-fe
+    hostname: fe
+    environment:
+      - FE_SERVERS=fe1:172.28.10.2:9010
+      - FE_ID=1
+      - TZ=Asia/Shanghai
+    ports:
+      - "8030:8030"   # FE Web UI
+      - "9030:9030"   # MySQL 协议
+    volumes:
+      - F:/doris/fe/doris-meta:/opt/apache-doris/fe/doris-meta
+      - F:/doris/fe/log:/opt/apache-doris/fe/log
+    networks:
+      dorisnet:
+        ipv4_address: 172.28.10.2
+    mem_limit: 8g
+    restart: unless-stopped
+
+  be:
+    image: apache/doris:be-3.1.4
+    container_name: qcc-doris-be
+    hostname: be
+    privileged: true
+    environment:
+      - FE_SERVERS=fe1:172.28.10.2:9010
+      - BE_ADDR=172.28.10.3:9050
+      - TZ=Asia/Shanghai
+    ports:
+      - "8040:8040"   # BE Web UI / Stream Load
+    volumes:
+      - F:/doris/be/storage:/opt/apache-doris/be/storage
+      - F:/doris/be/log:/opt/apache-doris/be/log
+    networks:
+      dorisnet:
+        ipv4_address: 172.28.10.3
+    mem_limit: 18g
+    depends_on:
+      - fe
+    restart: unless-stopped
+
+networks:
+  dorisnet:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.10.0/24

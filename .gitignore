@@ -1,0 +1,38 @@
+# secrets & env — keep examples only
+secrets/*
+!secrets/*.example
+*.env
+.env
+.env.*
+
+# python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+
+# local ETL / Doris artefacts (can be multi-GB)
+output/
+*.xlsx
+*.xls
+*.csv.gz
+*.parquet
+
+# editor / OS
+.idea/
+.vscode/
+.cursor/
+*.swp
+Thumbs.db
+Desktop.ini
+
+# ad-hoc local probes (keep out of public tree)
+_probe*.py
+_check*.py
+_explore*.py
+_run_*.py
+_test_*.py
+_bench*.py

@@ -1,0 +1,1658 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>点图找线索 · 白泽之眼</title>
+<style>
+  :root {
+    --ink: #1a1a1a;
+    --muted: #666;
+    --line: #e5e5e5;
+    --green: #1a8b5c;
+    --green-deep: #0f6b45;
+    --panel: #fff;
+    --font: "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; font-family: var(--font); color: var(--ink); }
+  #map { width: 100%; height: 100%; }
+
+  /* 顶栏：主搜一行 + 更多筛选折叠 */
+  .top-stack {
+    position: absolute; top: 12px; left: 12px; right: 12px; z-index: 40;
+    display: flex; flex-direction: column; gap: 8px; pointer-events: none;
+  }
+  .top-stack > * { pointer-events: auto; }
+  .top-row {
+    display: flex; gap: 10px; align-items: stretch;
+  }
+  .search-box {
+    display: flex; align-items: center; background: #fff;
+    border-radius: 4px; box-shadow: 0 2px 12px rgba(0,0,0,.12);
+    overflow: hidden; min-width: 0; flex: 1 1 auto;
+  }
+  .search-box select, .search-box input {
+    border: none; outline: none; font: inherit; padding: 12px 14px;
+    background: transparent;
+  }
+  .search-box select {
+    border-right: 1px solid var(--line); cursor: pointer; max-width: 100px;
+    color: var(--ink); appearance: none;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23999'/%3E%3C/svg%3E") no-repeat right 8px center;
+    padding-right: 20px; padding-left: 10px;
+  }
+  .search-box select#modeSel { max-width: 88px; }
+  .search-box select#provSel,
+  .search-box select#citySel,
+  .search-box select#distSel,
+  .search-box select#streetSel { max-width: 92px; min-width: 72px; }
+  .search-box input { flex: 1; min-width: 120px; }
+  .search-box .go {
+    width: 44px; height: 100%; border: none; background: var(--green);
+    color: #fff; cursor: pointer; font-size: 16px; flex-shrink: 0;
+  }
+  .quick-filters {
+    display: flex; align-items: center; gap: 0; background: #fff;
+    border-radius: 4px; box-shadow: 0 2px 12px rgba(0,0,0,.12);
+    overflow: hidden; flex-shrink: 0;
+  }
+  .quick-filters select {
+    border: none; outline: none; font: inherit; padding: 12px 28px 12px 14px;
+    background: transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23999'/%3E%3C/svg%3E") no-repeat right 10px center;
+    cursor: pointer; appearance: none; min-width: 88px;
+  }
+  .btn-more {
+    border: none; border-left: 1px solid var(--line);
+    background: #fff; font: inherit; font-size: 13px; font-weight: 600;
+    padding: 0 14px; cursor: pointer; color: var(--ink); white-space: nowrap;
+    display: inline-flex; align-items: center; gap: 6px; height: 100%;
+  }
+  .btn-more:hover { background: #f3faf6; color: var(--green-deep); }
+  .btn-more.on { background: #e8f5ef; color: var(--green-deep); }
+  .btn-more .badge {
+    display: none; min-width: 16px; height: 16px; padding: 0 4px;
+    border-radius: 8px; background: var(--green); color: #fff;
+    font-size: 11px; line-height: 16px; text-align: center;
+  }
+  .btn-more.has-extra .badge { display: inline-block; }
+  .more-panel {
+    display: none; align-items: flex-end; flex-wrap: wrap; gap: 12px 16px;
+    background: #fff; border-radius: 4px; box-shadow: 0 2px 12px rgba(0,0,0,.12);
+    padding: 12px 14px;
+  }
+  .more-panel.open { display: flex; }
+  .more-panel .field { display: flex; flex-direction: column; gap: 4px; min-width: 140px; }
+  .more-panel .field label {
+    font-size: 11px; color: var(--muted); font-weight: 600; letter-spacing: .04em;
+  }
+  .more-panel select, .more-panel input {
+    font: inherit; border: 1px solid var(--line); border-radius: 4px;
+    padding: 8px 10px; background: #fff; color: var(--ink); min-width: 140px;
+  }
+  .more-panel .field.grow { flex: 1 1 200px; min-width: 200px; }
+  .more-panel .field.grow input { width: 100%; }
+  .more-panel .hint { font-size: 12px; color: var(--muted); align-self: center; margin-left: auto; }
+  .nav-links {
+    margin-left: 0; display: flex; align-items: center; gap: 10px;
+    background: #fff; border-radius: 4px; box-shadow: 0 2px 12px rgba(0,0,0,.12);
+    padding: 0 14px; font-size: 13px; flex-shrink: 0;
+  }
+  .nav-links a { color: var(--green-deep); text-decoration: none; font-weight: 600; white-space: nowrap; }
+  .nav-links .map-brand {
+    color: var(--ink); font-weight: 700; letter-spacing: .02em;
+    padding-right: 4px; border-right: 1px solid var(--line); margin-right: 2px;
+  }
+  .nav-links .map-brand span { color: var(--green); }
+  .nav-links .btn-reset {
+    border: 1px solid var(--line); background: #fff; color: var(--ink);
+    font: inherit; font-size: 13px; font-weight: 600; padding: 6px 12px;
+    border-radius: 4px; cursor: pointer; white-space: nowrap;
+  }
+  .nav-links .btn-reset:hover { border-color: var(--green); color: var(--green-deep); background: #f3faf6; }
+
+  /* 可视区域计数 */
+  .viewport-count {
+    position: absolute; top: 68px; left: 12px; z-index: 35;
+    background: #fff; border-radius: 4px; box-shadow: 0 2px 10px rgba(0,0,0,.1);
+    padding: 8px 14px; font-size: 13px; color: var(--ink);
+    transition: top .2s;
+  }
+  body.map-more-open .viewport-count { top: 128px; }
+  body.map-more-open .drawer { top: 128px; }
+  .viewport-count b { color: var(--green); font-size: 15px; }
+  .viewport-count .sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
+
+  /* 使用提示 */
+  .howto {
+    position: absolute; bottom: 24px; left: 12px; z-index: 35;
+    background: rgba(255,255,255,.95); border-radius: 6px;
+    box-shadow: 0 2px 12px rgba(0,0,0,.1); padding: 12px 14px;
+    font-size: 12px; color: var(--muted); max-width: 280px; line-height: 1.55;
+  }
+  .howto strong { color: var(--ink); display: block; margin-bottom: 4px; font-size: 13px; }
+  .howto.hidden { display: none; }
+  .howto button {
+    margin-top: 8px; border: none; background: transparent; color: var(--green);
+    cursor: pointer; font: inherit; padding: 0;
+  }
+
+  /* 右侧列表 */
+  .drawer {
+    position: absolute; top: 68px; right: 12px; bottom: 24px; width: 360px;
+    z-index: 36; background: #fff; border-radius: 6px;
+    box-shadow: 0 4px 20px rgba(0,0,0,.14);
+    display: none; flex-direction: column; overflow: hidden;
+  }
+  .drawer.open { display: flex; }
+  .drawer-hd {
+    padding: 14px 16px; border-bottom: 1px solid var(--line);
+    display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;
+  }
+  .drawer-hd h2 { margin: 0; font-size: 15px; }
+  .drawer-hd .muted { color: var(--muted); font-size: 12px; margin-top: 4px; }
+  .drawer-hd .close {
+    border: none; background: #f5f5f5; width: 28px; height: 28px;
+    border-radius: 4px; cursor: pointer; font-size: 16px; line-height: 1;
+  }
+  .drawer-tools { padding: 8px 12px; border-bottom: 1px solid var(--line); display: flex; gap: 6px; }
+  .drawer-tools button {
+    font: inherit; border: 1px solid var(--line); border-radius: 4px;
+    padding: 6px 10px; background: #fff; cursor: pointer; font-size: 12px;
+  }
+  .drawer-tools button.primary { background: var(--green); color: #fff; border-color: var(--green); }
+  .drawer-list { overflow: auto; flex: 1; }
+  .item { padding: 12px 16px; border-bottom: 1px solid #f0f0f0; cursor: pointer; }
+  .item:hover { background: #f8fbf9; }
+  .item .name { font-weight: 600; font-size: 13px; line-height: 1.35; }
+  .item .meta { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .item .phone { font-size: 12px; color: var(--green-deep); margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .item .phone span { cursor: pointer; text-decoration: underline dotted; }
+  .item .phone span:hover { color: var(--green); }
+  .banner-hit {
+    margin: 0; padding: 8px 16px; font-size: 12px; color: var(--green-deep);
+    background: #eef8f3; border-bottom: 1px solid #d8eee4;
+  }
+  .tag {
+    display: inline-block; font-size: 11px; padding: 1px 6px; border-radius: 2px;
+    background: #e8f5ef; color: var(--green-deep); margin-right: 4px;
+  }
+  .empty { padding: 28px 16px; color: var(--muted); font-size: 13px; text-align: center; }
+
+  /* 区县圆气泡 */
+  .bubble {
+    width: 78px; height: 78px; border-radius: 50%;
+    background: rgba(26,139,92,.88); color: #fff;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; cursor: pointer; box-shadow: 0 2px 10px rgba(0,0,0,.18);
+    transition: transform .15s, background .15s; line-height: 1.2;
+    border: 2px solid rgba(255,255,255,.35);
+  }
+  .bubble:hover { transform: scale(1.08); background: rgba(15,107,69,.95); }
+  .bubble .bn { font-size: 12px; font-weight: 600; max-width: 70px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bubble .bm { font-size: 13px; font-weight: 700; margin: 2px 0; }
+  .bubble .bc { font-size: 11px; opacity: .92; }
+  .bubble.lg { width: 92px; height: 92px; }
+  .bubble.sm { width: 64px; height: 64px; }
+  .bubble.sm .bn { font-size: 11px; }
+  .bubble.sm .bm { font-size: 12px; }
+
+  /* 街道/网格胶囊 */
+  .pill {
+    display: inline-flex; align-items: center; gap: 0;
+    background: rgba(15,107,69,.94); color: #fff; border-radius: 999px;
+    padding: 6px 4px; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,.2);
+    white-space: nowrap; font-size: 12px; line-height: 1;
+    border: 1px solid rgba(255,255,255,.2);
+  }
+  .pill:hover { background: #0a5537; }
+  .pill span { padding: 0 8px; }
+  .pill span + span { border-left: 1px solid rgba(255,255,255,.35); }
+  .pill .pn { font-weight: 600; max-width: 110px; overflow: hidden; text-overflow: ellipsis; }
+
+  /* 单点企业定位气泡 */
+  .corp-pin {
+    position: relative; display: flex; flex-direction: column; align-items: center;
+    width: max-content; max-width: 200px; cursor: pointer;
+    filter: drop-shadow(0 3px 8px rgba(0,0,0,.22));
+    transform-origin: 50% 100%;
+    animation: corp-pin-in .28s cubic-bezier(.22,.61,.36,1);
+  }
+  @keyframes corp-pin-in {
+    from { opacity: 0; transform: translateY(8px) scale(.92); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  .corp-pin .pin-head {
+    width: 34px; height: 34px; border-radius: 50% 50% 50% 4px;
+    background: linear-gradient(145deg, #2bb673 0%, #0f6b45 100%);
+    transform: rotate(-45deg);
+    border: 2px solid #fff;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.25);
+  }
+  .corp-pin .pin-head i {
+    transform: rotate(45deg); color: #fff; font-style: normal;
+    font-size: 14px; font-weight: 700; line-height: 1;
+  }
+  .corp-pin .pin-label {
+    margin-top: 6px; background: rgba(255,255,255,.96);
+    border: 1px solid rgba(15,107,69,.2);
+    border-radius: 8px; padding: 6px 10px; text-align: center;
+    max-width: 190px;
+  }
+  .corp-pin .pin-label .pn {
+    display: block; font-size: 12px; font-weight: 700; color: #15201c;
+    line-height: 1.35; max-width: 170px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .corp-pin .pin-label .ps {
+    display: block; margin-top: 2px; font-size: 11px; color: #5f6f68;
+    max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .corp-pin.active .pin-head {
+    background: linear-gradient(145deg, #e26a45 0%, #b85a2a 100%);
+    width: 38px; height: 38px;
+  }
+  .corp-pin.active .pin-label {
+    border-color: rgba(184,90,42,.35);
+    box-shadow: 0 4px 14px rgba(184,90,42,.18);
+  }
+  .corp-pin.mini .pin-label { display: none; }
+  .corp-pin.mini .pin-head { width: 22px; height: 22px; }
+  .corp-pin.mini .pin-head i { font-size: 11px; }
+  /* 聚焦定位：只留针点，名称在右侧详情，避免压住底图标注 */
+  .corp-pin.focus {
+    max-width: none;
+  }
+  .corp-pin.focus .pin-label {
+    position: absolute; left: 50%; bottom: calc(100% + 8px);
+    transform: translateX(-50%);
+    margin-top: 0; white-space: nowrap;
+    display: flex; align-items: center; gap: 6px;
+    padding: 5px 8px 5px 10px;
+    pointer-events: auto;
+  }
+  .corp-pin.focus .pin-label .pn { max-width: 140px; }
+  .corp-pin.focus .pin-label .ps { display: none; }
+  .corp-pin.focus .pin-x {
+    border: none; background: #f0f0f0; width: 18px; height: 18px;
+    border-radius: 4px; cursor: pointer; font-size: 12px; line-height: 1;
+    color: #666; flex-shrink: 0; padding: 0;
+  }
+  .corp-pin.focus .pin-x:hover { background: #e5e5e5; color: #111; }
+
+  .drawer-list { position: relative; }
+  .detail-pane {
+    display: none; padding: 12px 16px 20px; overflow: auto; flex: 1;
+  }
+  .drawer.show-detail .drawer-list { display: none; }
+  .drawer.show-detail .detail-pane { display: block; }
+  .drawer.show-detail .drawer-tools .list-only { display: none; }
+  .drawer.show-detail #btnBackList { display: inline-block !important; }
+  .detail-back {
+    border: none; background: transparent; color: var(--green-deep);
+    font: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+    padding: 0; margin-bottom: 10px;
+  }
+  .detail-name { font-size: 16px; font-weight: 700; line-height: 1.35; margin: 0 0 4px; }
+  .detail-code {
+    font-size: 12px; color: var(--muted); cursor: pointer;
+    text-decoration: underline dotted; margin-bottom: 12px;
+  }
+  .detail-kv {
+    display: grid; grid-template-columns: 72px 1fr; gap: 6px 8px;
+    font-size: 12px; margin-bottom: 14px;
+  }
+  .detail-kv .k { color: var(--muted); }
+  .detail-kv .v { color: var(--ink); word-break: break-all; cursor: pointer; }
+  .detail-kv .v:hover { color: var(--green-deep); }
+  .detail-sec { font-size: 12px; font-weight: 700; margin: 0 0 8px; color: var(--ink); }
+  .detail-contact {
+    font-size: 13px; padding: 8px 0; border-bottom: 1px solid #f0f0f0;
+    display: flex; justify-content: space-between; gap: 8px; align-items: center;
+  }
+  .detail-contact b {
+    font-variant-numeric: tabular-nums; cursor: pointer;
+    text-decoration: underline dotted; color: var(--green-deep);
+  }
+  .detail-scope {
+    font-size: 12px; line-height: 1.55; color: var(--muted);
+    cursor: pointer; white-space: pre-wrap; word-break: break-word;
+  }
+  .detail-hint { font-size: 11px; color: var(--muted); margin-top: 10px; }
+
+  @media (max-width: 900px) {
+    .top-row { flex-wrap: wrap; }
+    .search-box { min-width: 0; flex: 1 1 100%; }
+    .quick-filters, .nav-links { flex: 1 1 auto; }
+    .drawer { width: calc(100% - 24px); top: auto; height: 45vh; }
+    .howto { display: none; }
+  }
+</style>
+</head>
+<body>
+<div id="map"></div>
+
+<div class="top-stack">
+  <div class="top-row">
+    <div class="search-box">
+      <select id="provSel" title="省份"><option value="">省</option></select>
+      <select id="citySel" title="城市"><option value="">市</option></select>
+      <select id="distSel" title="区县"><option value="">区县</option></select>
+      <select id="streetSel" title="街道"><option value="">街道</option></select>
+      <select id="modeSel">
+        <option value="leads">找线索</option>
+        <option value="place">找地点</option>
+      </select>
+      <input id="placeQ" type="text" placeholder="公司名 / 法人 / 手机 / 信用代码" />
+      <button class="go" id="btnSearch" title="搜索">⌕</button>
+    </div>
+    <div class="quick-filters">
+      <select id="fMobile" title="触达">
+        <option value="1">有手机</option>
+        <option value="">不限触达</option>
+        <option value="0">无手机</option>
+      </select>
+      <button type="button" class="btn-more" id="btnMore" title="注册资本、行业等">
+        更多筛选<span class="badge" id="moreBadge">0</span>
+      </button>
+    </div>
+    <div class="nav-links">
+      <a class="map-brand" href="/" title="白泽云析 · 白泽之眼">白泽之眼<span>·线索</span></a>
+      <button type="button" class="btn-reset" id="btnReset" title="清空搜索与筛选">重置</button>
+      <a id="linkList" href="/">列表查询</a>
+    </div>
+  </div>
+  <div class="more-panel" id="morePanel">
+    <div class="field">
+      <label>注册资本</label>
+      <select id="fCapital">
+        <option value="">不限</option>
+        <option value="100">≥100万</option>
+        <option value="500">≥500万</option>
+        <option value="1000">≥1000万</option>
+        <option value="5000">≥5000万</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>行业门类</label>
+      <select id="fIndustry">
+        <option value="">不限</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>登记状态</label>
+      <select id="fStatus">
+        <option value="存续">存续</option>
+        <option value="">不限状态</option>
+      </select>
+    </div>
+    <div class="field grow">
+      <label>经营范围关键词</label>
+      <input id="fScope" type="text" placeholder="如：软件、贸易、制造" />
+    </div>
+    <div class="hint">低频条件放这里，改完自动生效</div>
+  </div>
+</div>
+
+<div class="viewport-count" id="viewportCount">
+  正在加载可视区域…
+  <div class="sub">缩放地图可切换 区县 → 街道 → 地址 聚合</div>
+</div>
+
+<div class="howto" id="howto">
+  <strong>怎么用</strong>
+  1. 顶栏选省 / 市 / 区 / 街，或「找线索」搜公司名手机<br>
+  2. 「找地点」：搜园区、街道，地图飞过去<br>
+  3. 点气泡出右侧列表；街道层不铺全部落点，点具体企业再地图定位<br>
+  4. 筛选与列表共用，可导出完整 CSV
+  <button type="button" id="btnHideHowto">知道了</button>
+</div>
+
+<aside class="drawer" id="drawer">
+  <div class="drawer-hd">
+    <div>
+      <h2 id="drawerTitle">区域线索</h2>
+      <div class="muted" id="drawerSub"></div>
+    </div>
+    <button class="close" id="btnCloseDrawer" type="button">×</button>
+  </div>
+  <div class="drawer-tools">
+    <button class="primary list-only" id="btnExport" type="button">导出 CSV</button>
+    <button class="list-only" id="btnOpenList" type="button">在列表中打开</button>
+    <button class="list-only" id="btnZoomIn" type="button">放大查看</button>
+    <button id="btnBackList" type="button" style="display:none">返回列表</button>
+  </div>
+  <div class="drawer-list" id="list"><div class="empty">点击地图上的气泡查看线索</div></div>
+  <div class="detail-pane" id="detailPane"></div>
+</aside>
+
+<script>
+let map, markers = [], resultMarkers = [], items = [], lastCluster = null, loadTimer = null, placeSearch = null;
+/** 与列表共享：点气泡写入的行政区会叠到查询状态上 */
+let regionOverride = { province: "", city: "", district: "", street: "" };
+/** 顶栏万能搜索词（找线索），写入 QueryState.q */
+let leadQ = "";
+/** 聚焦某家企业时：隐藏聚合气泡，只留可关闭的定位针 */
+let focusMode = false;
+let focusCode = "";
+let listSnapshotTitle = "";
+let listSnapshotSub = "";
+/** 点关闭叉后短时间内忽略地图/标记点击，防止事件穿透又点开 */
+let suppressMapClickUntil = 0;
+
+function swallowMapClickBriefly(ms = 450) {
+  suppressMapClickUntil = Date.now() + ms;
+}
+
+function mapClickSuppressed() {
+  return Date.now() < suppressMapClickUntil;
+}
+async function jget(url) {
+  const r = await fetch(url);
+  if (!r.ok) {
+    const raw = await r.text();
+    let msg = raw;
+    try {
+      const j = JSON.parse(raw);
+      if (j && j.detail) msg = typeof j.detail === "string" ? j.detail : JSON.stringify(j.detail);
+    } catch (_) {}
+    throw new Error(msg);
+  }
+  return r.json();
+}
+
+function money(n) {
+  if (n == null || n === "") return "—";
+  const v = Number(n);
+  if (Number.isNaN(v)) return "—";
+  if (v >= 10000) return (v / 10000).toFixed(1) + "亿";
+  if (v >= 1000) return (v / 1000).toFixed(1) + "千万";
+  return Math.round(v) + "万";
+}
+
+function fmtCnt(n) {
+  n = Number(n) || 0;
+  if (n >= 10000) return (n / 10000).toFixed(1) + "万家";
+  return n + "家";
+}
+
+function esc(s) {
+  return String(s ?? "").replace(/[&<>"']/g, c => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+  }[c]));
+}
+
+async function copyText(text) {
+  const t = String(text || "").trim();
+  if (!t) return;
+  try {
+    await navigator.clipboard.writeText(t);
+  } catch (_) {
+    const ta = document.createElement("textarea");
+    ta.value = t; document.body.appendChild(ta); ta.select();
+    document.execCommand("copy"); ta.remove();
+  }
+}
+
+function updateModePlaceholder() {
+  const mode = document.getElementById("modeSel").value;
+  const input = document.getElementById("placeQ");
+  if (mode === "place") {
+    input.placeholder = "请输入目标地点 / 街道 / 园区";
+  } else {
+    input.placeholder = "公司名 / 法人 / 手机 / 信用代码";
+  }
+}
+
+function updateMoreBadge() {
+  const capital = document.getElementById("fCapital").value;
+  const industry = document.getElementById("fIndustry").value;
+  const status = document.getElementById("fStatus").value;
+  const scope = document.getElementById("fScope").value.trim();
+  let n = 0;
+  if (capital) n++;
+  if (industry) n++;
+  if (status && status !== "存续") n++;
+  if (scope) n++;
+  const btn = document.getElementById("btnMore");
+  const badge = document.getElementById("moreBadge");
+  badge.textContent = String(n);
+  btn.classList.toggle("has-extra", n > 0);
+}
+
+function setMorePanel(open) {
+  const panel = document.getElementById("morePanel");
+  const btn = document.getElementById("btnMore");
+  panel.classList.toggle("open", open);
+  btn.classList.toggle("on", open);
+  document.body.classList.toggle("map-more-open", open);
+}
+
+/** 列表/地图共用查询参数（不含 bbox / zoom） */
+function queryState(extra = {}) {
+  const p = new URLSearchParams();
+  const province = document.getElementById("provSel").value;
+  const city = document.getElementById("citySel").value;
+  const district = document.getElementById("distSel").value;
+  const street = document.getElementById("streetSel").value;
+  const mobile = document.getElementById("fMobile").value;
+  const capital = document.getElementById("fCapital").value;
+  const industry = document.getElementById("fIndustry").value;
+  const status = document.getElementById("fStatus").value;
+  const scope = document.getElementById("fScope").value.trim();
+  const u = new URLSearchParams(location.search);
+
+  ["scale","capital_max","age_min","age_max",
+   "insured_min","insured_max","addr_kw","has_landline","has_email","has_contact"].forEach(k => {
+    if (u.has(k) && u.get(k)) p.set(k, u.get(k));
+  });
+
+  if (leadQ) p.set("q", leadQ);
+  else if (u.get("q")) p.set("q", u.get("q"));
+
+  if (province) p.set("province", province);
+  if (city) p.set("city", city);
+  if (district) p.set("district", district);
+  if (street) p.set("street", street);
+
+  if (mobile !== "") p.set("has_mobile", mobile);
+  else p.delete("has_mobile");
+
+  if (capital) p.set("capital_min", capital);
+  if (industry) p.set("industry_l1", industry);
+  if (status) p.set("status", status);
+  else p.set("status", "");
+  if (scope) p.set("scope_kw", scope);
+
+  Object.entries(extra).forEach(([k, v]) => {
+    if (v == null || v === "") p.delete(k);
+    else p.set(k, v);
+  });
+  // 气泡点选覆盖（仅当 extra 未显式处理时）
+  Object.entries(regionOverride).forEach(([k, v]) => {
+    if (extra[k] !== undefined) return;
+    if (v && !p.get(k)) p.set(k, v);
+  });
+  return p;
+}
+
+function syncMapUrl(extraRegion = null) {
+  const p = queryState(extraRegion || {});
+  if (p.get("status") === "") p.delete("status");
+  const qs = p.toString();
+  history.replaceState(null, "", qs ? ("/map?" + qs) : "/map");
+  const listLink = document.getElementById("linkList");
+  if (listLink) listLink.href = qs ? ("/?" + qs) : "/";
+}
+
+function applyUrlToMapFilters() {
+  const u = new URLSearchParams(location.search);
+  if (u.has("has_mobile")) document.getElementById("fMobile").value = u.get("has_mobile");
+  else if (!location.search) document.getElementById("fMobile").value = "1";
+  if (u.get("capital_min")) {
+    const cap = u.get("capital_min");
+    const sel = document.getElementById("fCapital");
+    if ([...sel.options].some(o => o.value === cap)) sel.value = cap;
+  }
+  if (u.get("industry_l1")) {
+    const ind = document.getElementById("fIndustry");
+    if ([...ind.options].some(o => o.value === u.get("industry_l1"))) ind.value = u.get("industry_l1");
+  }
+  if (u.has("status")) document.getElementById("fStatus").value = u.get("status");
+  if (u.get("scope_kw")) document.getElementById("fScope").value = u.get("scope_kw");
+  if (u.get("q")) {
+    leadQ = u.get("q");
+    document.getElementById("placeQ").value = leadQ;
+    document.getElementById("modeSel").value = "leads";
+  }
+  regionOverride = {
+    province: u.get("province") || "",
+    city: u.get("city") || "",
+    district: u.get("district") || "",
+    street: u.get("street") || "",
+  };
+  updateModePlaceholder();
+  return u;
+}
+
+function clearResultMarkers() {
+  if (resultMarkers.length && map) {
+    map.remove(resultMarkers);
+    resultMarkers = [];
+  }
+}
+
+function clearClusterMarkers() {
+  if (markers.length && map) {
+    map.remove(markers);
+    markers = [];
+  }
+}
+
+function exitFocusMode(reload = true) {
+  focusMode = false;
+  focusCode = "";
+  clearResultMarkers();
+  if (reload) scheduleLoad();
+}
+
+function shortName(name, max = 14) {
+  const s = String(name || "").trim();
+  if (!s) return "企业";
+  const bare = s.replace(/(有限责任公司|股份有限公司|有限公司|集团|公司)$/g, "");
+  const show = bare || s;
+  return show.length > max ? show.slice(0, max) + "…" : show;
+}
+
+function createCorpPinEl(row, opts = {}) {
+  const el = document.createElement("div");
+  el.className = "corp-pin"
+    + (opts.active ? " active" : "")
+    + (opts.mini ? " mini" : "")
+    + (opts.focus ? " focus" : "");
+  const sub = [row.district, row.street].filter(Boolean).join(" · ")
+    || (row.capital_wan != null ? `注册资本 ${money(row.capital_wan)}` : "");
+  const closeBtn = opts.focus
+    ? `<button type="button" class="pin-x" title="关闭定位">×</button>` : "";
+  el.innerHTML = `
+    <div class="pin-head"><i>${opts.active || opts.focus ? "企" : "●"}</i></div>
+    <div class="pin-label">
+      <span class="pn">${esc(shortName(row.company_name || row.name || "企业"))}</span>
+      ${sub && !opts.focus ? `<span class="ps">${esc(sub)}</span>` : ""}
+      ${closeBtn}
+    </div>`;
+  if (opts.focus) {
+    const x = el.querySelector(".pin-x");
+    if (x) {
+      const closePin = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+        swallowMapClickBriefly(600);
+        // 先清针，延迟恢复列表点，避免同一点击落到新标记上
+        focusMode = false;
+        focusCode = "";
+        clearResultMarkers();
+        const drawer = document.getElementById("drawer");
+        drawer.classList.remove("show-detail");
+        document.getElementById("btnBackList").style.display = "none";
+        document.getElementById("detailPane").innerHTML = "";
+        if (listSnapshotTitle) document.getElementById("drawerTitle").textContent = listSnapshotTitle;
+        if (listSnapshotSub) document.getElementById("drawerSub").textContent = listSnapshotSub;
+        setTimeout(() => {
+          if (mapClickSuppressed()) swallowMapClickBriefly(200);
+          // 关闭单企针后只恢复街道聚合，不再铺全量绿点
+          scheduleLoad();
+        }, 320);
+      };
+      x.addEventListener("pointerdown", closePin, true);
+      x.addEventListener("mousedown", closePin, true);
+      x.addEventListener("click", closePin, true);
+    }
+  }
+  return el;
+}
+
+function addCorpMarker(lng, lat, row, opts = {}) {
+  const el = createCorpPinEl(row || {}, opts);
+  // focus 时标签在针上方，针尖仍对准坐标
+  const offsetY = opts.focus ? -40 : -42;
+  const m = new AMap.Marker({
+    position: [lng, lat],
+    content: el,
+    offset: new AMap.Pixel(opts.focus ? -19 : -17, offsetY),
+    zIndex: opts.focus || opts.active ? 320 : 220,
+    title: (row && (row.company_name || row.name)) || "",
+  });
+  resultMarkers.push(m);
+  map.add(m);
+  return m;
+}
+
+function showFocusPin(lng, lat, row) {
+  focusMode = true;
+  clearClusterMarkers();
+  clearResultMarkers();
+  const m = addCorpMarker(lng, lat, row, { active: true, focus: true });
+  m.on("click", () => {
+    if (mapClickSuppressed()) return;
+    if (row.credit_code) openCompanyDetail(row.credit_code, row);
+  });
+  return m;
+}
+
+/** 仅在「精准命中很少家」时铺点；街道侧栏/多结果一律不铺，点右侧再出 focus 针 */
+function showResultPins(rows, opts = {}) {
+  if (focusMode) return;
+  clearResultMarkers();
+  const list = (rows || []).filter(r => Number(r.lng) && Number(r.lat));
+  const maxPins = opts.maxPins != null ? opts.maxPins : 1;
+  if (!list.length || list.length > maxPins) {
+    if (opts.fit && list.length > maxPins) {
+      // 多点不画针，只把视野大致落到有坐标的结果附近
+      const lngs = list.map(r => Number(r.lng));
+      const lats = list.map(r => Number(r.lat));
+      const midLng = (Math.min(...lngs) + Math.max(...lngs)) / 2;
+      const midLat = (Math.min(...lats) + Math.max(...lats)) / 2;
+      if (midLng && midLat) map.setZoomAndCenter(Math.min(map.getZoom(), 14), [midLng, midLat]);
+    }
+    return;
+  }
+  list.forEach(r => {
+    const lng = Number(r.lng), lat = Number(r.lat);
+    const m = addCorpMarker(lng, lat, r, { mini: true });
+    m.on("click", () => {
+      if (mapClickSuppressed()) return;
+      openCompanyDetail(r.credit_code, r);
+    });
+  });
+  if (list.length === 1) {
+    map.setZoomAndCenter(15, [Number(list[0].lng), Number(list[0].lat)]);
+  }
+}
+
+/** 有坐标直接飞；无坐标则用地址/公司名高德地理编码 */
+function flyToCompany(info, opts = {}) {
+  const zoom = opts.zoom || 16;
+  const placePin = (lng, lat) => {
+    map.setZoomAndCenter(zoom, [lng, lat]);
+    if (opts.pin) {
+      showFocusPin(lng, lat, {
+        company_name: info.name || info.company_name,
+        credit_code: info.credit_code,
+        district: info.district,
+        street: info.street,
+        capital_wan: info.capital_wan,
+      });
+    }
+    return [lng, lat];
+  };
+  const lng = Number(info.lng), lat = Number(info.lat);
+  if (lng && lat) {
+    return Promise.resolve(placePin(lng, lat));
+  }
+  const addr = (info.address || "").trim();
+  const name = (info.name || info.company_name || "").trim();
+  const city = (info.city || document.getElementById("citySel").value || "").trim();
+  const street = [info.district, info.street].filter(Boolean).join("");
+  const candidates = [
+    addr,
+    [city, street, name].filter(Boolean).join(""),
+    [city, name].filter(Boolean).join(""),
+    name,
+  ].filter(Boolean);
+
+  return new Promise((resolve, reject) => {
+    if (!candidates.length) {
+      reject(new Error("无地址可定位"));
+      return;
+    }
+    if (!window._geocoder) {
+      window._geocoder = new AMap.Geocoder({ city: city || "全国", radius: 1000 });
+    } else if (city) {
+      window._geocoder.setCity(city);
+    }
+    const tryOne = (i) => {
+      if (i >= candidates.length) {
+        if (!placeSearch) placeSearch = new AMap.PlaceSearch({ city: city || "全国" });
+        placeSearch.setCity(city || "全国");
+        placeSearch.search(name || addr, (status, result) => {
+          if (status === "complete" && result.poiList && result.poiList.pois.length) {
+            const poi = result.poiList.pois[0];
+            resolve(placePin(poi.location.lng, poi.location.lat));
+          } else {
+            reject(new Error("未能定位到该公司位置"));
+          }
+        });
+        return;
+      }
+      window._geocoder.getLocation(candidates[i], (status, result) => {
+        if (status === "complete" && result.geocodes && result.geocodes.length) {
+          const loc = result.geocodes[0].location;
+          resolve(placePin(loc.lng, loc.lat));
+        } else {
+          tryOne(i + 1);
+        }
+      });
+    };
+    tryOne(0);
+  });
+}
+
+function contactTypeLabel(t) {
+  return ({ mobile: "手机", landline: "座机", email: "邮箱" })[t] || t || "联系方式";
+}
+
+function renderDetail(d) {
+  const c = d.company || {};
+  const contacts = d.contacts || [];
+  const geo = [c.province, c.city, c.district, c.street].filter(Boolean).join(" / ");
+  const rows = [
+    ["法人", c.legal_person],
+    ["状态", c.status],
+    ["规模", c.scale],
+    ["注册资本", c.capital_wan != null ? money(c.capital_wan) : ""],
+    ["成立日期", c.established],
+    ["行业", [c.industry_l1, c.industry_l2].filter(Boolean).join(" / ")],
+    ["参保", c.insured_count != null ? String(c.insured_count) : ""],
+    ["地域", geo],
+    ["地址", c.address],
+    ["官网", c.website],
+  ].filter(([, v]) => v != null && String(v).trim() !== "");
+
+  const contactHtml = contacts.length
+    ? contacts.map(x => `
+        <div class="detail-contact">
+          <span>${esc(contactTypeLabel(x.contact_type))}</span>
+          <b data-copy="${esc(x.contact_value)}">${esc(x.contact_value)}</b>
+        </div>`).join("")
+    : `<div class="empty" style="padding:12px 0">暂无联系方式</div>`;
+
+  document.getElementById("detailPane").innerHTML = `
+    <h3 class="detail-name" data-copy="${esc(c.company_name || "")}">${esc(c.company_name || "—")}</h3>
+    <div class="detail-code" data-copy="${esc(c.credit_code || "")}">${esc(c.credit_code || "")}</div>
+    <div class="detail-kv">
+      ${rows.map(([k, v]) => `
+        <div class="k">${esc(k)}</div>
+        <div class="v" data-copy="${esc(v)}">${esc(v)}</div>`).join("")}
+    </div>
+    <div class="detail-sec">联系方式</div>
+    ${contactHtml}
+    <div class="detail-sec" style="margin-top:14px">经营范围</div>
+    <div class="detail-scope" data-copy="${esc(c.scope || "")}">${esc(c.scope || "—")}</div>
+    <div class="detail-hint">点击字段可复制 · 地图定位针可点 × 关闭</div>
+  `;
+}
+
+async function openCompanyDetail(code, preview = {}) {
+  if (!code || mapClickSuppressed()) return;
+  const drawer = document.getElementById("drawer");
+  drawer.classList.add("open");
+  if (!drawer.classList.contains("show-detail")) {
+    listSnapshotTitle = document.getElementById("drawerTitle").textContent;
+    listSnapshotSub = document.getElementById("drawerSub").textContent;
+  }
+  focusCode = code;
+  drawer.classList.add("show-detail");
+  document.getElementById("btnBackList").style.display = "";
+  document.getElementById("drawerTitle").textContent = "企业详情";
+  document.getElementById("drawerSub").textContent = "加载中…";
+  document.getElementById("detailPane").innerHTML = '<div class="empty">加载详情…</div>';
+
+  document.querySelectorAll("#list .item").forEach(el => {
+    el.style.background = el.dataset.code === code ? "#eef8f3" : "";
+  });
+
+  try {
+    const d = await jget("/api/company/" + encodeURIComponent(code));
+    const c = d.company || {};
+    document.getElementById("drawerSub").textContent =
+      [c.city, c.district, c.street].filter(Boolean).join(" · ") || c.address || "";
+    renderDetail(d);
+    await flyToCompany({
+      lng: c.lng || preview.lng,
+      lat: c.lat || preview.lat,
+      address: c.address || preview.address,
+      city: c.city || preview.city,
+      district: c.district || preview.district,
+      street: c.street || preview.street,
+      name: c.company_name || preview.company_name || preview.name,
+      credit_code: c.credit_code || code,
+      capital_wan: c.capital_wan,
+    }, { pin: true, zoom: 17 });
+  } catch (e) {
+    document.getElementById("detailPane").innerHTML =
+      `<div class="empty">详情加载失败：${esc(e.message)}</div>`;
+  }
+}
+
+function closeCompanyDetail(opts = {}) {
+  const drawer = document.getElementById("drawer");
+  drawer.classList.remove("show-detail");
+  document.getElementById("btnBackList").style.display = "none";
+  document.getElementById("detailPane").innerHTML = "";
+  if (listSnapshotTitle) document.getElementById("drawerTitle").textContent = listSnapshotTitle;
+  if (listSnapshotSub) document.getElementById("drawerSub").textContent = listSnapshotSub;
+  focusMode = false;
+  focusCode = "";
+  clearResultMarkers();
+  // 回到列表：地图只保留街道聚合，不把侧栏企业再铺成绿点
+  scheduleLoad();
+  if (!opts.keepList) {
+    drawer.classList.remove("open");
+  }
+}
+
+function renderCompanyList(rows, opts = {}) {
+  const list = document.getElementById("list");
+  const banner = opts.banner
+    ? `<div class="banner-hit">${esc(opts.banner)}</div>` : "";
+  if (!rows.length) {
+    list.innerHTML = banner + `<div class="empty">${opts.empty || "无结果"}</div>`;
+    return;
+  }
+  list.innerHTML = banner + rows.map(r => {
+    const phones = (r.contacts_preview || [])
+      .map(x => x.contact_value).filter(Boolean).slice(0, 3);
+    const phoneHtml = phones.length
+      ? `<div class="phone">${phones.map(p =>
+          `<span data-copy="${esc(p)}">${esc(p)}</span>`).join(" · ")}</div>`
+      : "";
+    const geoHint = (r.lng && r.lat) ? "" : '<span class="tag" style="background:#f5efe8;color:#8a5a2b">待定位</span>';
+    return `
+      <div class="item" data-code="${esc(r.credit_code || "")}"
+           data-lng="${r.lng || ""}" data-lat="${r.lat || ""}"
+           data-address="${esc(r.address || "")}" data-city="${esc(r.city || "")}"
+           data-district="${esc(r.district || "")}" data-street="${esc(r.street || "")}"
+           data-name="${esc(r.company_name || "")}"
+           data-capital="${r.capital_wan != null ? r.capital_wan : ""}">
+        <div class="name">${esc(r.company_name || "")} ${geoHint}</div>
+        <div class="meta">${esc([r.city, r.district, r.street].filter(Boolean).join(" · ") || r.address || "")}</div>
+        <div class="meta">${esc(r.industry_l1 || "—")} · 注册资本 ${money(r.capital_wan)}
+          ${r.has_mobile ? '<span class="tag">手机</span>' : ''}
+          ${r.has_landline ? '<span class="tag">座机</span>' : ''}
+          ${r.legal_person ? `<span class="tag">${esc(r.legal_person)}</span>` : ""}
+        </div>
+        ${phoneHtml}
+      </div>`;
+  }).join("");
+}
+
+function clearMarkers() {
+  clearClusterMarkers();
+}
+
+function bubbleSize(cnt) {
+  if (cnt >= 80) return "lg";
+  if (cnt <= 15) return "sm";
+  return "";
+}
+
+function renderClusters(data) {
+  clearMarkers();
+  const level = data.level;
+  const list = data.clusters || [];
+  document.getElementById("viewportCount").innerHTML =
+    `可视区域内找到 <b>${(data.total || 0).toLocaleString("zh-CN")}</b> 家已定位企业` +
+    `<div class="sub">当前层级：${
+      level === "city" ? "城市聚合" :
+      level === "district" ? "区县聚合" : "街道聚合"
+    } · 共 ${list.length} 个气泡 · 气泡=行政区全量已定位（与侧栏一致）` +
+    (level === "street" ? " · 单企请点右侧列表定位" : "") +
+    `</div>`;
+
+  list.forEach(c => {
+    const lng = Number(c.lng), lat = Number(c.lat);
+    if (!lng || !lat) return;
+    let el;
+    if (level === "city" || level === "district") {
+      el = document.createElement("div");
+      el.className = "bubble " + bubbleSize(c.cnt);
+      el.innerHTML = `<div class="bn">${c.name || c.district || c.city || ""}</div>
+        <div class="bm">${fmtCnt(c.cnt)}</div>
+        <div class="bc">均资 ${money(c.metric)}</div>`;
+    } else {
+      // 街道：用圆气泡，避免胶囊在中心点附近互相遮挡
+      el = document.createElement("div");
+      el.className = "bubble " + bubbleSize(c.cnt);
+      const label = (c.name || "").replace(/(.{6}).+/, "$1…");
+      el.innerHTML = `<div class="bn">${label}</div>
+        <div class="bm">${fmtCnt(c.cnt)}</div>
+        <div class="bc">均资 ${money(c.metric)}</div>`;
+    }
+    const m = new AMap.Marker({
+      position: [lng, lat],
+      content: el,
+      offset: new AMap.Pixel(-39, -39),
+      zIndex: 100 + Math.min(Number(c.cnt) || 0, 50),
+    });
+    m.on("click", () => {
+      if (mapClickSuppressed()) return;
+      onClusterClick(c, level, [lng, lat]);
+    });
+    markers.push(m);
+  });
+  if (markers.length) map.add(markers);
+}
+
+async function loadClusters() {
+  if (!map || focusMode) return;
+  const b = map.getBounds();
+  if (!b) return;
+  const sw = b.getSouthWest(), ne = b.getNorthEast();
+  const zoom = map.getZoom();
+  const params = queryState();
+  // 聚合用顶栏省市区条件；不把气泡点选的 street 锁死在整图
+  // city/district/street 来自顶栏即可
+  params.set("min_lng", sw.getLng());
+  params.set("min_lat", sw.getLat());
+  params.set("max_lng", ne.getLng());
+  params.set("max_lat", ne.getLat());
+  params.set("zoom", zoom.toFixed(1));
+  // 不限触达：显式 -1，避免后端默认 has_mobile=1
+  if (!params.has("has_mobile")) params.set("has_mobile", "-1");
+  if (params.get("status") === "") { /* 允许空=不限 */ }
+
+  try {
+    const data = await jget(`/api/map/clusters?${params}`);
+    if (data.level === "overview" || data.hint) {
+      clearMarkers();
+      document.getElementById("viewportCount").innerHTML =
+        `${esc(data.hint || "请放大到城市级查看")}<div class="sub">也可在顶栏直接选省 / 市 / 区</div>`;
+      return;
+    }
+    renderClusters(data);
+    syncMapUrl();
+  } catch (e) {
+    document.getElementById("viewportCount").innerHTML =
+      `加载失败：${esc(e.message)}<div class="sub">视野过大时请先放大到城市级</div>`;
+  }
+}
+
+function scheduleLoad() {
+  clearTimeout(loadTimer);
+  loadTimer = setTimeout(loadClusters, 280);
+}
+
+async function onClusterClick(c, level, pos) {
+  lastCluster = { c, level, pos };
+  const drawer = document.getElementById("drawer");
+  drawer.classList.add("open");
+  document.getElementById("drawerTitle").textContent = c.name || c.district || "区域线索";
+  document.getElementById("drawerSub").textContent =
+    `${c.city || ""} ${c.district || ""} · 气泡 ${fmtCnt(c.cnt)} · 均资 ${money(c.metric)}`;
+  document.getElementById("list").innerHTML = '<div class="empty">加载中…</div>';
+
+  if (level === "city" || level === "district") {
+    map.setZoomAndCenter(level === "city" ? 12 : Math.max(map.getZoom(), 13.2), pos);
+  }
+
+  const region = {};
+  if (c.city) region.city = c.city;
+  if (c.district) region.district = c.district;
+  if (level === "street" && c.street) region.street = c.street;
+  else if (level === "street") region.street = "";
+  if (level === "city") { region.district = ""; region.street = ""; }
+  if (level === "district") { region.street = ""; }
+  regionOverride = { ...regionOverride, ...region };
+  syncMapUrl(region);
+
+  const params = queryState(region);
+  params.set("limit", "200");
+  if (!params.has("has_mobile")) params.set("has_mobile", "-1");
+
+  // 市/区/街：侧栏含未定位；地图不铺企业点，点列表再出定位针
+  params.set("require_geo", "0");
+  clearResultMarkers();
+
+  try {
+    let data = await jget(`/api/map/companies?${params}`);
+    let relaxedMobile = false;
+    if ((data.total || 0) === 0 && params.get("has_mobile") === "1") {
+      params.set("has_mobile", "-1");
+      data = await jget(`/api/map/companies?${params}`);
+      if ((data.total || 0) > 0) {
+        relaxedMobile = true;
+        document.getElementById("fMobile").value = "";
+      }
+    }
+    items = data.items || [];
+    const more = data.total > items.length ? ` · 列表展示前 ${items.length} 条` : "";
+    const geoNote = data.require_geo ? "" : "（含未定位）";
+    const relaxNote = relaxedMobile ? " · 已自动切换为不限触达" : "";
+    document.getElementById("drawerSub").textContent =
+      `${c.city || ""} ${c.district || c.name || ""} · 共 ${data.total} 家${geoNote}${more}${relaxNote}`;
+    listSnapshotTitle = document.getElementById("drawerTitle").textContent;
+    listSnapshotSub = document.getElementById("drawerSub").textContent;
+    renderCompanyList(items, {
+      empty: "该区域暂无企业<br>可放宽「有手机」等筛选后再试",
+      banner: relaxedMobile
+        ? "本区域手机号覆盖极低，已改为「不限触达」"
+        : (level === "street"
+          ? "点击下方企业可在地图定位 · 街道层不展示全部落点"
+          : ""),
+    });
+  } catch (e) {
+    document.getElementById("list").innerHTML = `<div class="empty">加载失败：${esc(e.message)}</div>`;
+  }
+}
+
+async function fillSelect(sel, rows, placeholder) {
+  const keep = sel.value;
+  sel.innerHTML = `<option value="">${placeholder}</option>`;
+  (rows || []).forEach(r => {
+    const name = typeof r === "string" ? r : (r.k || r.city || r.name || "");
+    if (!name) return;
+    const o = document.createElement("option");
+    o.value = name;
+    o.textContent = r.n != null ? `${name}（${Number(r.n).toLocaleString("zh-CN")}）` : name;
+    sel.appendChild(o);
+  });
+  if (keep && [...sel.options].some(o => o.value === keep)) sel.value = keep;
+}
+
+async function loadProvinces() {
+  const f = await jget("/api/facets");
+  await fillSelect(document.getElementById("provSel"), f.provinces || [], "省");
+  const ind = document.getElementById("fIndustry");
+  if (ind.options.length <= 1) {
+    (f.industries || []).slice(0, 40).forEach(x => {
+      const v = typeof x === "string" ? x : (x.k || "");
+      if (!v) return;
+      const o = document.createElement("option");
+      o.value = v; o.textContent = v;
+      ind.appendChild(o);
+    });
+  }
+}
+
+async function loadCities() {
+  const p = document.getElementById("provSel").value;
+  const url = p ? `/api/cities?province=${encodeURIComponent(p)}` : "/api/cities";
+  const rows = await jget(url);
+  await fillSelect(document.getElementById("citySel"), rows, "市");
+  await fillSelect(document.getElementById("distSel"), [], "区县");
+  await fillSelect(document.getElementById("streetSel"), [], "街道");
+}
+
+async function loadDistricts() {
+  const p = document.getElementById("provSel").value;
+  const c = document.getElementById("citySel").value;
+  await fillSelect(document.getElementById("distSel"), [], "区县");
+  await fillSelect(document.getElementById("streetSel"), [], "街道");
+  if (!c) return;
+  const rows = await jget(
+    `/api/districts?province=${encodeURIComponent(p)}&city=${encodeURIComponent(c)}`
+  );
+  await fillSelect(document.getElementById("distSel"), rows, "区县");
+}
+
+async function loadStreets() {
+  const p = document.getElementById("provSel").value;
+  const c = document.getElementById("citySel").value;
+  const d = document.getElementById("distSel").value;
+  await fillSelect(document.getElementById("streetSel"), [], "街道");
+  if (!d) return;
+  const rows = await jget(
+    `/api/streets?province=${encodeURIComponent(p)}&city=${encodeURIComponent(c)}&district=${encodeURIComponent(d)}`
+  );
+  await fillSelect(document.getElementById("streetSel"), rows, "街道");
+}
+
+/** 顶栏选中区划后飞向标准库中心点（不依赖企业是否已定位） */
+async function flyToAdminSelection(opts = {}) {
+  const province = document.getElementById("provSel").value;
+  const city = document.getElementById("citySel").value;
+  const district = document.getElementById("distSel").value;
+  const street = document.getElementById("streetSel").value;
+  if (!province && !city && !district && !street) return null;
+  const p = new URLSearchParams();
+  if (province) p.set("province", province);
+  if (city) p.set("city", city);
+  if (district) p.set("district", district);
+  if (street) p.set("street", street);
+  try {
+    const c = await jget(`/api/admin_center?${p}`);
+    if (!c.ok || !c.lng || !c.lat) return null;
+    const zoom = opts.zoom || c.zoom || 13;
+    map.setZoomAndCenter(zoom, [c.lng, c.lat]);
+    lastCluster = {
+      c: {
+        name: c.name || street || district || city,
+        city: c.city || city,
+        district: c.district || district,
+        street: c.street || street,
+        cnt: 0,
+        metric: null,
+      },
+      level: street ? "street" : district ? "district" : "city",
+      pos: [c.lng, c.lat],
+    };
+    scheduleLoad();
+    return c;
+  } catch (_) {
+    return null;
+  }
+}
+
+/** 按顶栏省市区街拉全量列表（含未定位） */
+async function loadAdminList() {
+  const city = document.getElementById("citySel").value;
+  const district = document.getElementById("distSel").value;
+  const street = document.getElementById("streetSel").value;
+  if (!city && !district && !street) {
+    alert("请先选择城市或区县/街道");
+    return;
+  }
+  regionOverride = {
+    province: document.getElementById("provSel").value,
+    city,
+    district,
+    street,
+  };
+  // 先飞到区划中心，再拉侧栏（未定位企业也能对准地图）
+  await flyToAdminSelection();
+
+  const drawer = document.getElementById("drawer");
+  drawer.classList.add("open");
+  drawer.classList.remove("show-detail");
+  document.getElementById("btnBackList").style.display = "none";
+  const title = street || district || city;
+  document.getElementById("drawerTitle").textContent = title;
+  document.getElementById("drawerSub").textContent = "加载中…";
+  document.getElementById("list").innerHTML = '<div class="empty">加载中…</div>';
+  listSnapshotTitle = title;
+
+  const params = queryState();
+  params.set("limit", "200");
+  params.set("require_geo", "0");
+  if (!params.has("has_mobile")) params.set("has_mobile", "-1");
+  try {
+    let data = await jget(`/api/map/companies?${params}`);
+    let relaxedMobile = false;
+    // 北京/天津等省手机号几乎未入库时，默认「有手机」会得到 0；自动放宽并提示
+    if ((data.total || 0) === 0 && params.get("has_mobile") === "1") {
+      params.set("has_mobile", "-1");
+      data = await jget(`/api/map/companies?${params}`);
+      if ((data.total || 0) > 0) {
+        relaxedMobile = true;
+        document.getElementById("fMobile").value = "";
+      }
+    }
+    items = data.items || [];
+    const more = data.total > items.length ? ` · 列表展示前 ${items.length} 条` : "";
+    const geoN = items.filter(r => r.lng && r.lat).length;
+    const pending = data.total > geoN
+      ? ` · 列表含待定位`
+      : "";
+    const relaxNote = relaxedMobile ? " · 已自动切换为不限触达（本区手机号极少）" : "";
+    document.getElementById("drawerSub").textContent =
+      `${[city, district, street].filter(Boolean).join(" · ")} · 共 ${data.total} 家（含未定位）${more}${pending}${relaxNote}`;
+    listSnapshotSub = document.getElementById("drawerSub").textContent;
+    renderCompanyList(items, {
+      empty: "该区域暂无企业",
+      banner: relaxedMobile
+        ? "本区域工商数据已入库，但手机号几乎未覆盖；已改为「不限触达」展示全部企业"
+        : (items.length && !items.some(r => r.lng && r.lat)
+          ? "该街道企业坐标仍在回填中 · 地图已定位到街道中心"
+          : ""),
+    });
+    syncMapUrl();
+  } catch (e) {
+    document.getElementById("list").innerHTML = `<div class="empty">加载失败：${esc(e.message)}</div>`;
+  }
+}
+
+async function initFilters() {
+  const u = applyUrlToMapFilters();
+  await loadProvinces();
+  if (u.get("province")) {
+    document.getElementById("provSel").value = u.get("province");
+  }
+  await loadCities();
+  if (u.get("city")) {
+    const sel = document.getElementById("citySel");
+    if ([...sel.options].some(o => o.value === u.get("city"))) sel.value = u.get("city");
+  }
+  // 默认城市：URL 无市时尽量选苏州
+  if (!document.getElementById("citySel").value) {
+    const sel = document.getElementById("citySel");
+    if ([...sel.options].some(o => o.value === "苏州市")) sel.value = "苏州市";
+  }
+  if (document.getElementById("citySel").value) await loadDistricts();
+  if (u.get("district")) {
+    const sel = document.getElementById("distSel");
+    if ([...sel.options].some(o => o.value === u.get("district"))) sel.value = u.get("district");
+  }
+  if (document.getElementById("distSel").value) await loadStreets();
+  if (u.get("street")) {
+    const sel = document.getElementById("streetSel");
+    if ([...sel.options].some(o => o.value === u.get("street"))) sel.value = u.get("street");
+  }
+}
+
+async function init() {
+  if (localStorage.getItem("map_howto_hidden") === "1") {
+    document.getElementById("howto").classList.add("hidden");
+  }
+  document.getElementById("btnHideHowto").onclick = () => {
+    document.getElementById("howto").classList.add("hidden");
+    localStorage.setItem("map_howto_hidden", "1");
+  };
+  document.getElementById("btnCloseDrawer").onclick = () => {
+    closeCompanyDetail({ keepList: false });
+  };
+  document.getElementById("btnBackList").onclick = () => {
+    closeCompanyDetail({ keepList: true });
+  };
+
+  // 筛选与高德脚本并行，避免 Doris 区划接口慢时地图长时间黑屏
+  const filtersReady = initFilters();
+  const cfg = await jget("/api/amap_config");
+  if (!cfg.js_key) {
+    document.getElementById("viewportCount").textContent = "未配置高德 JS Key（secrets/amap.env → AMAP_JS_KEY）";
+    await filtersReady.catch(() => {});
+    return;
+  }
+  // 必须在加载 JS API 之前设置；否则安全密钥校验失败，地图会白屏/初始化异常
+  window._AMapSecurityConfig = { securityJsCode: cfg.security_code || "" };
+  if (typeof AMap === "undefined") {
+    await new Promise((resolve, reject) => {
+      const s = document.createElement("script");
+      s.src = `https://webapi.amap.com/maps?v=2.0&key=${encodeURIComponent(cfg.js_key)}&plugin=AMap.PlaceSearch,AMap.AutoComplete,AMap.Geocoder`;
+      const timer = setTimeout(() => {
+        reject(new Error("高德地图脚本加载超时（请检查网络能否访问 webapi.amap.com）"));
+      }, 20000);
+      s.onload = () => {
+        clearTimeout(timer);
+        if (typeof AMap === "undefined") {
+          reject(new Error("高德脚本已下载但 AMap 未定义（Key 类型或安全密钥可能不对）"));
+        } else {
+          resolve();
+        }
+      };
+      // onerror 传入的是 Event，没有 message → 以前会显示「初始化失败：undefined」
+      s.onerror = () => {
+        clearTimeout(timer);
+        reject(new Error("高德地图脚本加载失败（网络拦截或 JS Key 无效）"));
+      };
+      document.head.appendChild(s);
+    });
+  }
+
+  map = new AMap.Map("map", {
+    zoom: 11,
+    center: [120.73, 31.32],
+    viewMode: "2D",
+    mapStyle: "amap://styles/whitesmoke",
+  });
+
+  map.on("moveend", scheduleLoad);
+  map.on("zoomend", scheduleLoad);
+
+  try {
+    await filtersReady;
+  } catch (e) {
+    console.warn("区划筛选加载失败，地图仍可使用", e);
+    document.getElementById("viewportCount").textContent =
+      "区划下拉加载失败：" + errText(e) + "（地图可继续用）";
+  }
+  updateMoreBadge();
+  // URL 带低频条件时自动展开「更多筛选」
+  if (document.getElementById("btnMore").classList.contains("has-extra")) {
+    setMorePanel(true);
+  }
+
+  const refreshFilters = () => {
+    if (focusMode) exitFocusMode(false);
+    document.getElementById("drawer").classList.remove("show-detail");
+    document.getElementById("btnBackList").style.display = "none";
+    if (!document.getElementById("placeQ").value.trim()) leadQ = "";
+    regionOverride = {
+      province: document.getElementById("provSel").value,
+      city: document.getElementById("citySel").value,
+      district: document.getElementById("distSel").value,
+      street: document.getElementById("streetSel").value,
+    };
+    updateMoreBadge();
+    syncMapUrl();
+    scheduleLoad();
+  };
+
+  document.getElementById("btnMore").onclick = () => {
+    const open = !document.getElementById("morePanel").classList.contains("open");
+    setMorePanel(open);
+  };
+
+  document.getElementById("provSel").onchange = async () => {
+    await loadCities();
+    refreshFilters();
+  };
+  document.getElementById("citySel").onchange = async () => {
+    await loadDistricts();
+    refreshFilters();
+    const city = document.getElementById("citySel").value;
+    if (city) {
+      const hit = await flyToAdminSelection({ zoom: 11 });
+      if (!hit) map.setCity(city, () => scheduleLoad());
+    }
+  };
+  document.getElementById("distSel").onchange = async () => {
+    await loadStreets();
+    refreshFilters();
+    // 选到区：飞地图 + 拉全量侧栏（含未定位）
+    if (document.getElementById("distSel").value) loadAdminList();
+  };
+  document.getElementById("streetSel").onchange = () => {
+    refreshFilters();
+    if (document.getElementById("streetSel").value) loadAdminList();
+  };
+
+  ["fMobile", "fCapital", "fIndustry", "fStatus"].forEach(id => {
+    document.getElementById(id).onchange = refreshFilters;
+  });
+  document.getElementById("fScope").onchange = refreshFilters;
+  document.getElementById("fScope").onkeydown = e => {
+    if (e.key === "Enter") refreshFilters();
+  };
+
+  document.getElementById("modeSel").onchange = () => {
+    updateModePlaceholder();
+  };
+
+  async function searchLeads() {
+    const q = document.getElementById("placeQ").value.trim();
+    if (!q) {
+      alert("请输入公司名、法人、手机号或信用代码");
+      return;
+    }
+    leadQ = q;
+    // 精准查人/电话时，默认不限「有手机」，避免把本人号筛掉
+    const looksPhone = /^[\d\s\-+()]{7,}$/.test(q) || /^1\d{10}$/.test(q.replace(/\D/g, ""));
+    const looksPerson = /^[\u4e00-\u9fff]{2,4}$/.test(q);
+    if (looksPhone || looksPerson) {
+      document.getElementById("fMobile").value = "";
+    }
+    regionOverride.district = "";
+    regionOverride.street = "";
+    syncMapUrl();
+
+    const drawer = document.getElementById("drawer");
+    drawer.classList.add("open");
+    document.getElementById("drawerTitle").textContent = "搜索结果";
+    document.getElementById("drawerSub").textContent = "查询中…";
+    document.getElementById("list").innerHTML = '<div class="empty">查询中…</div>';
+
+    const params = queryState();
+    params.set("page", "1");
+    params.set("page_size", "50");
+    if (!params.has("has_mobile")) params.set("has_mobile", "-1");
+    // 搜公司时城市作偏好：有城市则带上；若 0 结果再放宽
+    try {
+      let data = await jget(`/api/search?${params}`);
+      if ((data.total || 0) === 0 && params.get("city")) {
+        params.delete("city");
+        data = await jget(`/api/search?${params}`);
+      }
+      items = data.items || [];
+      const kind = data.q_kind_label || "关键词命中";
+      document.getElementById("drawerSub").textContent =
+        `共 ${data.total || 0} 家 · 展示前 ${items.length} 条`;
+      renderCompanyList(items, {
+        banner: `${kind}「${q}」· 与列表同源检索` +
+          (items.length > 1 ? " · 点右侧企业再地图定位" : ""),
+        empty: "未找到企业。可切换「找地点」搜园区/街道，或放宽右侧筛选",
+      });
+      clearResultMarkers();
+      const first = items[0];
+      // 仅命中 1 家：直接打开详情（含定位）
+      if (first && items.length === 1) {
+        openCompanyDetail(first.credit_code, first);
+      } else {
+        // 多结果：不铺绿点，保留街道聚合；有坐标时略移视野
+        showResultPins(items, { maxPins: 0, fit: true });
+        scheduleLoad();
+      }
+    } catch (e) {
+      document.getElementById("list").innerHTML = `<div class="empty">搜索失败：${e.message}</div>`;
+    }
+  }
+
+  function searchPlace() {
+    const q = document.getElementById("placeQ").value.trim();
+    if (!q) return;
+    if (!placeSearch) placeSearch = new AMap.PlaceSearch({ city: document.getElementById("citySel").value || "全国" });
+    placeSearch.setCity(document.getElementById("citySel").value || "全国");
+    placeSearch.search(q, (status, result) => {
+      if (status !== "complete" || !result.poiList || !result.poiList.pois.length) {
+        alert("未找到该地点");
+        return;
+      }
+      const poi = result.poiList.pois[0];
+      map.setZoomAndCenter(15, [poi.location.lng, poi.location.lat]);
+    });
+  }
+
+  document.getElementById("btnSearch").onclick = () => {
+    if (document.getElementById("modeSel").value === "place") searchPlace();
+    else searchLeads();
+  };
+  document.getElementById("placeQ").onkeydown = e => {
+    if (e.key === "Enter") document.getElementById("btnSearch").click();
+  };
+
+  document.getElementById("btnZoomIn").onclick = () => {
+    if (lastCluster) map.setZoomAndCenter(Math.min(map.getZoom() + 2, 17), lastCluster.pos);
+  };
+
+  document.getElementById("btnOpenList").onclick = () => {
+    const p = queryState();
+    if (p.get("status") === "") p.delete("status");
+    if (!p.has("has_mobile") || p.get("has_mobile") === "-1") p.delete("has_mobile");
+    const qs = p.toString();
+    location.href = qs ? ("/?" + qs) : "/";
+  };
+
+  document.getElementById("btnReset").onclick = () => {
+    leadQ = "";
+    items = [];
+    lastCluster = null;
+    focusMode = false;
+    focusCode = "";
+    regionOverride = { province: "", city: "", district: "", street: "" };
+    document.getElementById("placeQ").value = "";
+    document.getElementById("modeSel").value = "leads";
+    updateModePlaceholder();
+    document.getElementById("fMobile").value = "1";
+    document.getElementById("fCapital").value = "";
+    document.getElementById("fIndustry").value = "";
+    document.getElementById("fStatus").value = "存续";
+    document.getElementById("fScope").value = "";
+    updateMoreBadge();
+    setMorePanel(false);
+    document.getElementById("provSel").value = "";
+    fillSelect(document.getElementById("distSel"), [], "区县");
+    fillSelect(document.getElementById("streetSel"), [], "街道");
+    loadCities().then(() => {
+      const sel = document.getElementById("citySel");
+      if ([...sel.options].some(o => o.value === "苏州市")) sel.value = "苏州市";
+      regionOverride.city = sel.value || "";
+      clearResultMarkers();
+      clearClusterMarkers();
+      const drawer = document.getElementById("drawer");
+      drawer.classList.remove("open", "show-detail");
+      document.getElementById("btnBackList").style.display = "none";
+      document.getElementById("detailPane").innerHTML = "";
+      document.getElementById("list").innerHTML = '<div class="empty">点击地图上的气泡查看线索</div>';
+      document.getElementById("drawerTitle").textContent = "区域线索";
+      document.getElementById("drawerSub").textContent = "";
+      syncMapUrl();
+      const city = sel.value;
+      if (city) map.setCity(city, () => scheduleLoad());
+      else scheduleLoad();
+    });
+  };
+
+  document.getElementById("btnExport").onclick = () => {
+    const p = queryState();
+    if (p.get("status") === "") p.delete("status");
+    if (!p.has("has_mobile") || p.get("has_mobile") === "-1") p.delete("has_mobile");
+    // 有气泡区域时按区导出；否则用当前筛选
+    window.open("/api/export?" + p.toString(), "_blank");
+  };
+
+  document.getElementById("list").onclick = e => {
+    const copyEl = e.target.closest("[data-copy]");
+    if (copyEl) {
+      e.stopPropagation();
+      copyText(copyEl.dataset.copy);
+      return;
+    }
+    const item = e.target.closest(".item");
+    if (!item || !item.dataset.code) return;
+    openCompanyDetail(item.dataset.code, {
+      lng: item.dataset.lng,
+      lat: item.dataset.lat,
+      address: item.dataset.address,
+      city: item.dataset.city,
+      district: item.dataset.district,
+      street: item.dataset.street,
+      company_name: item.dataset.name,
+      capital_wan: item.dataset.capital,
+    });
+  };
+
+  document.getElementById("detailPane").onclick = e => {
+    const copyEl = e.target.closest("[data-copy]");
+    if (!copyEl) return;
+    e.preventDefault();
+    copyText(copyEl.dataset.copy);
+  };
+
+  // URL 带 q 时自动搜一次
+  syncMapUrl();
+  const city = document.getElementById("citySel").value;
+  const boot = () => {
+    scheduleLoad();
+    if (leadQ) searchLeads();
+  };
+  if (city) {
+    // setCity 在部分环境下回调不触发；用区划中心点兜底，避免白屏卡死
+    let booted = false;
+    const once = () => {
+      if (booted) return;
+      booted = true;
+      boot();
+    };
+    try {
+      if (typeof map.setCity === "function") {
+        map.setCity(city, once);
+      }
+    } catch (_) { /* fall through */ }
+    flyToAdminSelection({ zoom: 11 }).then(hit => {
+      if (hit) once();
+      else setTimeout(once, 800);
+    }).catch(() => setTimeout(once, 800));
+  } else {
+    boot();
+  }
+}
+
+function errText(e) {
+  if (e == null) return "未知错误";
+  if (typeof e === "string") return e;
+  if (e.message) return e.message;
+  if (e.info) return String(e.info);
+  if (e.type && e.target) return `资源加载失败（${e.type}）`;
+  try { return JSON.stringify(e); } catch (_) { return String(e); }
+}
+
+init().catch(e => {
+  console.error("map init failed", e);
+  const el = document.getElementById("viewportCount");
+  if (el) el.textContent = "初始化失败：" + errText(e);
+});
+</script>
+</body>
+</html>

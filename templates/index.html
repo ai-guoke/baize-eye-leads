@@ -1,0 +1,1979 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>白泽之眼 · 工商大数据线索池</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Serif+SC:wght@600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #eef2f0;
+    --bg-deep: #e4ebe7;
+    --panel: #fbfcfc;
+    --ink: #15201c;
+    --muted: #5f6f68;
+    --line: #d5ddd8;
+    --line-soft: #e8eee9;
+    --accent: #0d6b55;
+    --accent-soft: #d8ebe4;
+    --accent-2: #b85a2a;
+    --warn-bg: #f6ebe4;
+    --ok: #1a7a4c;
+    --font: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+    --display: "Noto Serif SC", "Noto Sans SC", serif;
+    --radius: 10px;
+    --ease: cubic-bezier(.22,.61,.36,1);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    color: var(--ink);
+    font-family: var(--font);
+    background:
+      radial-gradient(900px 480px at 8% -8%, rgba(13,107,85,.10), transparent 55%),
+      radial-gradient(700px 420px at 96% 0%, rgba(184,90,42,.06), transparent 50%),
+      linear-gradient(180deg, #f4f7f5 0%, var(--bg) 40%, var(--bg-deep) 100%);
+    min-height: 100vh;
+  }
+  body::before {
+    content: "";
+    position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    opacity: .35;
+    background-image: radial-gradient(rgba(21,32,28,.06) 1px, transparent 1px);
+    background-size: 22px 22px;
+  }
+  header, .layout { position: relative; z-index: 1; }
+
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 20px;
+    border-bottom: 1px solid rgba(213,221,216,.85);
+    background: rgba(251,252,252,.82);
+    backdrop-filter: blur(12px);
+    position: sticky; top: 0; z-index: 20;
+  }
+  .brand {
+    font-family: var(--display);
+    font-size: 20px; font-weight: 700; letter-spacing: .03em;
+    display: flex; align-items: center; gap: 2px;
+  }
+  .brand-text { display: flex; flex-direction: column; gap: 1px; line-height: 1.15; }
+  .brand-name { display: flex; align-items: baseline; gap: 2px; }
+  .brand-name span { color: var(--accent); }
+  .brand-co {
+    font-family: var(--sans, "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif);
+    font-size: 11px; font-weight: 500; letter-spacing: .06em;
+    color: var(--muted);
+  }
+  .brand-mark {
+    width: 10px; height: 10px; border-radius: 2px;
+    background: var(--accent); margin-right: 10px;
+    box-shadow: 4px 4px 0 color-mix(in srgb, var(--accent) 35%, white);
+    align-self: center; flex-shrink: 0;
+  }
+  .header-right { display: flex; gap: 16px; align-items: center; }
+  .nav-link {
+    color: var(--accent); text-decoration: none; font-weight: 600; font-size: 13px;
+    padding: 6px 12px; border: 1px solid color-mix(in srgb, var(--accent) 35%, white);
+    border-radius: 8px; background: rgba(216,235,228,.45);
+    transition: background .2s var(--ease), transform .2s var(--ease);
+  }
+  .nav-link:hover { background: var(--accent-soft); transform: translateY(-1px); }
+  .meta { color: var(--muted); font-size: 12px; }
+
+  /* 三栏：筛选 | 列表工作台 | 企业详情 */
+  .layout {
+    display: grid;
+    grid-template-columns: 268px minmax(0, 1fr) minmax(340px, 400px);
+    gap: 14px;
+    padding: 14px 16px 24px;
+    max-width: 100%;
+    margin: 0 auto;
+    align-items: start;
+    min-height: calc(100vh - 58px);
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 16px 16px 14px;
+  }
+  .panel h3 {
+    margin: 0 0 12px; font-size: 12px; letter-spacing: .12em;
+    color: var(--muted); font-weight: 600;
+  }
+  .panel h3::after {
+    content: ""; display: block; width: 28px; height: 2px;
+    background: var(--accent); margin-top: 8px; border-radius: 1px;
+  }
+
+  #filters {
+    position: sticky; top: 62px; max-height: calc(100vh - 76px);
+    align-self: start;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+    padding-bottom: 12px;
+  }
+  #filters .filters-scroll {
+    flex: 1; min-height: 0; overflow: auto;
+    padding-right: 2px; margin-right: -2px;
+  }
+  #filters .filter-foot {
+    flex-shrink: 0;
+    margin-top: 10px; padding-top: 12px;
+    border-top: 1px solid var(--line);
+    background: var(--panel);
+  }
+  #filters .filter-foot .actions { margin-top: 8px; }
+  #filters .filter-foot .actions:first-child { margin-top: 0; }
+  #filters .filter-foot button:disabled {
+    opacity: .72; cursor: wait; filter: none;
+  }
+  main.workbench { min-width: 0; position: relative; }
+  .search-status { display: none; }
+  .search-progress {
+    position: absolute; left: 0; right: 0; top: 0; height: 2px;
+    z-index: 8; pointer-events: none; opacity: 0;
+    transition: opacity .35s var(--ease);
+    overflow: hidden;
+  }
+  main.workbench.is-loading .search-progress { opacity: 1; }
+  .search-progress > i {
+    display: block; height: 100%; width: 36%;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    animation: driftBar 2.2s ease-in-out infinite;
+  }
+  @keyframes softPulse {
+    0%, 100% { opacity: .35; transform: scale(.85); }
+    50% { opacity: 1; transform: scale(1); }
+  }
+  @keyframes driftBar {
+    0% { transform: translateX(-120%); }
+    100% { transform: translateX(320%); }
+  }
+
+  /* 查询中：省市数据流 */
+  .dataflow {
+    display: none;
+    position: relative;
+    margin: 0 0 12px;
+    min-height: 220px;
+    border-radius: var(--radius);
+    border: 1px solid var(--line);
+    background:
+      radial-gradient(120% 80% at 10% 0%, rgba(13,107,85,.10), transparent 55%),
+      radial-gradient(90% 70% at 90% 100%, rgba(42,143,111,.08), transparent 50%),
+      linear-gradient(180deg, #f7faf8 0%, #eef3f0 100%);
+    overflow: hidden;
+    isolation: isolate;
+  }
+  main.workbench.is-loading .dataflow { display: block; }
+  .dataflow::before {
+    content: "";
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(21,32,28,.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(21,32,28,.04) 1px, transparent 1px);
+    background-size: 28px 28px;
+    mask-image: linear-gradient(180deg, rgba(0,0,0,.55), transparent 85%);
+    pointer-events: none; z-index: 0;
+  }
+  .dataflow-hd {
+    position: relative; z-index: 2;
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 12px; padding: 14px 16px 8px;
+  }
+  .dataflow-mode {
+    font-family: var(--display);
+    font-size: 15px; font-weight: 700; color: var(--ink);
+    letter-spacing: .04em;
+  }
+  .dataflow-mode em {
+    font-style: normal; color: var(--accent); margin-left: 8px;
+    font-size: 12px; font-weight: 600; letter-spacing: .08em;
+  }
+  .dataflow-note {
+    font-size: 12px; color: var(--muted); white-space: nowrap;
+  }
+  .dataflow-focus {
+    position: relative; z-index: 2;
+    padding: 4px 16px 10px;
+    font-family: var(--display);
+    font-size: clamp(28px, 4vw, 40px);
+    font-weight: 700; line-height: 1.1;
+    color: var(--ink); letter-spacing: .06em;
+    min-height: 48px;
+  }
+  .dataflow-focus span {
+    display: inline-block;
+    animation: focusIn .28s var(--ease);
+  }
+  @keyframes focusIn {
+    from { opacity: 0; transform: translateY(8px) scale(.98); filter: blur(2px); }
+    to { opacity: 1; transform: none; filter: none; }
+  }
+  .dataflow-meta {
+    position: relative; z-index: 2;
+    display: flex; flex-wrap: wrap; gap: 8px 14px;
+    padding: 0 16px 12px;
+    font-size: 12px; color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .dataflow-meta b { color: var(--accent); font-weight: 700; }
+  .dataflow-rail {
+    position: relative; z-index: 2;
+    display: flex; flex-wrap: wrap; gap: 6px;
+    padding: 0 14px 14px;
+    max-height: 92px; overflow: hidden;
+  }
+  .dataflow-chip {
+    font-size: 11px; padding: 4px 9px; border-radius: 6px;
+    border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--line));
+    background: rgba(255,255,255,.72);
+    color: #3d5249;
+    animation: chipIn .35s var(--ease);
+    white-space: nowrap;
+  }
+  .dataflow-chip.on {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff; font-weight: 600;
+  }
+  .dataflow-chip.dim { opacity: .35; }
+  @keyframes chipIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: none; }
+  }
+  .dataflow-stream {
+    position: absolute; inset: 0; z-index: 1;
+    pointer-events: none; overflow: hidden; opacity: .55;
+  }
+  .dataflow-stream b {
+    position: absolute;
+    font-size: 11px; font-weight: 500; color: var(--accent);
+    white-space: nowrap; opacity: 0;
+    animation: streamFall linear forwards;
+  }
+  @keyframes streamFall {
+    0% { opacity: 0; transform: translateY(-8px); }
+    12% { opacity: .7; }
+    100% { opacity: 0; transform: translateY(210px); }
+  }
+  .dataflow-log {
+    position: relative; z-index: 2;
+    border-top: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
+    padding: 8px 16px 12px;
+    font-family: "Cascadia Code", "Sarasa Mono SC", "Consolas", monospace;
+    font-size: 11px; line-height: 1.55; color: #5a6e64;
+    min-height: 52px;
+  }
+  .dataflow-log div { opacity: .9; }
+  .dataflow-log div.hi { color: var(--accent); font-weight: 600; }
+
+  main.workbench.is-loading .list-panel,
+  main.workbench.is-loading .stats,
+  main.workbench.is-loading .charts {
+    opacity: .38;
+    transition: opacity .35s var(--ease);
+    pointer-events: none;
+    filter: saturate(.85);
+  }
+  main.workbench:not(.is-loading) .list-panel,
+  main.workbench:not(.is-loading) .stats,
+  main.workbench:not(.is-loading) .charts {
+    opacity: 1; filter: none; transition: opacity .35s var(--ease);
+  }
+  #detail {
+    position: sticky; top: 62px;
+    max-height: calc(100vh - 76px);
+    overflow: auto;
+    align-self: start;
+    padding: 0;
+    display: flex; flex-direction: column;
+  }
+  #detail.empty .detail-body,
+  #detail.empty .drawer-hd,
+  #detail.empty .copy-hint { display: none; }
+  #detail:not(.empty) .detail-empty { display: none; }
+  .detail-empty {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    text-align: center; padding: 48px 28px; color: var(--muted);
+    min-height: 320px;
+  }
+  .detail-empty .ico {
+    width: 48px; height: 48px; border-radius: 12px;
+    background: var(--accent-soft); color: var(--accent);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; font-weight: 700; margin-bottom: 14px;
+  }
+  .detail-empty strong {
+    display: block; color: var(--ink); font-size: 15px; margin-bottom: 6px;
+  }
+  .detail-empty p { margin: 0; font-size: 13px; line-height: 1.5; max-width: 220px; }
+  label { display: block; font-size: 12px; color: var(--muted); margin: 10px 0 4px; font-weight: 500; }
+  input, select, button, textarea {
+    font: inherit; width: 100%; border: 1px solid var(--line);
+    border-radius: 8px; padding: 8px 10px; background: #fff; color: var(--ink);
+  }
+  input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(13,107,85,.14);
+  }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .actions { display: flex; gap: 8px; margin-top: 14px; }
+  button {
+    cursor: pointer; background: var(--accent); color: #fff;
+    border: none; font-weight: 600; transition: filter .15s, transform .15s var(--ease);
+  }
+  button:hover { filter: brightness(1.06); }
+  button:active { transform: translateY(1px); }
+  button.secondary { background: #eef3f0; color: var(--ink); border: 1px solid var(--line); }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .chip {
+    background: #eef3f0; border-radius: 6px; padding: 5px 10px;
+    font-size: 12px; color: var(--muted); cursor: pointer; border: 1px solid transparent;
+    user-select: none; transition: all .15s var(--ease);
+  }
+  .chip:hover { border-color: var(--line); color: var(--ink); }
+  .chip.on {
+    background: var(--accent-soft); color: var(--accent);
+    border-color: color-mix(in srgb, var(--accent) 30%, white); font-weight: 600;
+  }
+  .q-fields { margin-top: 8px; }
+  .q-fields .chip { font-size: 11px; padding: 4px 8px; }
+  .q-fields .q-field-all,
+  .q-fields .q-field-auto {
+    border-style: dashed; color: var(--ink);
+  }
+  .q-fields .q-field-auto.on {
+    background: #e8f0ff; color: #2a5a9e;
+    border-color: #b7c9e8;
+  }
+
+  .stats {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 12px;
+  }
+  .stat {
+    position: relative; overflow: hidden;
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 12px 12px 10px;
+  }
+  .stat::before {
+    content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+    background: var(--accent);
+  }
+  .stat .n {
+    font-family: var(--display);
+    font-size: 22px; font-weight: 700; letter-spacing: -.02em;
+    line-height: 1.1; color: var(--ink);
+  }
+  .stat .l { font-size: 11px; color: var(--muted); margin-top: 5px; letter-spacing: .04em; }
+  .stat:nth-child(2)::before { background: #2a8f6f; }
+  .stat:nth-child(3)::before { background: #3a7ca5; }
+  .stat:nth-child(4)::before { background: var(--accent-2); }
+
+  .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+  .bar-row {
+    display: grid; grid-template-columns: 72px 1fr 48px; gap: 6px;
+    align-items: center; font-size: 12px; margin: 5px 0;
+  }
+  .bar-row > div:first-child {
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink);
+  }
+  .bar {
+    height: 7px; background: var(--line-soft); border-radius: 4px; overflow: hidden;
+  }
+  .bar > i {
+    display: block; height: 100%; border-radius: 4px;
+    background: linear-gradient(90deg, #0d6b55, #1a9474);
+    transition: width .45s var(--ease);
+  }
+
+  .list-panel { padding: 0; overflow: hidden; }
+  .toolbar {
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 10px; flex-wrap: wrap;
+    padding: 10px 14px; border-bottom: 1px solid var(--line-soft);
+    background: linear-gradient(180deg, #f7faf8, var(--panel));
+  }
+  .toolbar .count {
+    font-size: 13px; font-weight: 600; color: var(--ink);
+  }
+  .toolbar .count span { color: var(--accent); }
+  .sort-box { display: grid; grid-template-columns: 1fr 80px; gap: 8px; width: 240px; }
+  .table-wrap { overflow: auto; max-height: calc(100vh - 420px); min-height: 280px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; table-layout: fixed; }
+  th {
+    padding: 9px 10px; text-align: left; vertical-align: top;
+    font-size: 11px; color: var(--muted); font-weight: 600;
+    letter-spacing: .06em; text-transform: uppercase;
+    position: sticky; top: 0; z-index: 2;
+    background: #f3f7f5; border-bottom: 1px solid var(--line);
+  }
+  td {
+    padding: 11px 10px; border-bottom: 1px solid var(--line-soft);
+    vertical-align: top;
+  }
+  th:nth-child(1), td:nth-child(1) { width: 34%; }
+  th:nth-child(2), td:nth-child(2) { width: 18%; }
+  th:nth-child(3), td:nth-child(3) { width: 16%; }
+  th:nth-child(4), td:nth-child(4) { width: 16%; }
+  th:nth-child(5), td:nth-child(5) { width: 16%; }
+  tbody tr {
+    cursor: pointer; transition: background .15s var(--ease);
+  }
+  tbody tr:hover td { background: #f3f8f5; }
+  tbody tr:hover td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+  tbody tr.active td { background: #eef8f3; }
+  tbody tr.active td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+  .name { font-weight: 600; font-size: 13px; line-height: 1.35; }
+  .sub { color: var(--muted); font-size: 11.5px; margin-top: 3px; line-height: 1.4; }
+  .muted { color: var(--muted); }
+  .geo { font-size: 12px; color: #3d4f47; line-height: 1.45; }
+  .tag {
+    display: inline-block; font-size: 10.5px; padding: 2px 6px; border-radius: 4px;
+    background: var(--accent-soft); color: var(--accent); margin: 0 3px 2px 0;
+    font-weight: 500;
+  }
+  .tag.warn { background: var(--warn-bg); color: var(--accent-2); }
+  .pager {
+    display: flex; gap: 8px; align-items: center; justify-content: flex-end;
+    padding: 10px 14px; border-top: 1px solid var(--line-soft);
+  }
+  .pager button { width: auto; min-width: 72px; }
+  .pager .page-pill {
+    min-width: 36px; text-align: center; font-weight: 600; font-size: 13px;
+    color: var(--accent);
+  }
+
+  /* 右侧详情（原 drawer，现为常驻栏） */
+  #detail .drawer-hd {
+    position: sticky; top: 0; z-index: 2;
+    padding: 16px 16px 12px;
+    background: rgba(251,252,252,.96); backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--line-soft);
+  }
+  #detail .drawer-hd .top { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+  #detail h2 {
+    margin: 0; font-family: var(--display); font-size: 16px; font-weight: 700;
+    line-height: 1.35; letter-spacing: .01em;
+  }
+  #detail .hd-actions { display: flex; gap: 6px; flex-shrink: 0; }
+  #detail .btn-edit {
+    width: auto; background: var(--accent); color: #fff; border: none;
+    padding: 6px 10px; font-size: 12px; font-weight: 600;
+  }
+  #detail .btn-cancel-edit {
+    width: auto; background: #eef3f0; color: var(--ink);
+    border: 1px solid var(--line); padding: 6px 10px; font-size: 12px;
+  }
+  #detail .close {
+    width: auto; flex-shrink: 0; background: #eef3f0; color: var(--ink);
+    border: 1px solid var(--line); padding: 6px 10px; font-size: 12px;
+  }
+  #detail .view-only { display: block; }
+  #detail .info-grid.view-only { display: grid; }
+  #detail .edit-only { display: none; }
+  #detail.editing .view-only { display: none; }
+  #detail.editing .edit-only { display: block; }
+  #detail.editing .add-contact.edit-only { display: grid; }
+  #detail.editing .btn-edit { display: none; }
+  #detail:not(.editing) .btn-cancel-edit { display: none; }
+  .contact-item .del { display: none; }
+  #detail.editing .contact-item .del { display: inline-block; }
+  .drawer-code {
+    margin-top: 6px; font-size: 12px; color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .detail-body { padding: 4px 16px 24px; }
+  .sec-title {
+    margin: 16px 0 8px; font-size: 12px; letter-spacing: .1em;
+    color: var(--muted); font-weight: 600;
+  }
+  .sec-title::after {
+    content: ""; display: block; width: 24px; height: 2px;
+    background: var(--accent); margin-top: 6px;
+  }
+  /* 基本信息：短字段双列卡片，长字段通栏 */
+  .info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin: 0 0 4px;
+  }
+  .info-cell {
+    background: #f4f8f6;
+    border: 1px solid var(--line-soft);
+    border-radius: 8px;
+    padding: 10px 12px;
+    min-width: 0;
+  }
+  .info-cell.span2 { grid-column: 1 / -1; }
+  .info-cell .lab {
+    display: block; font-size: 11px; color: var(--muted);
+    letter-spacing: .04em; margin-bottom: 4px;
+  }
+  .info-cell .val {
+    font-size: 13px; line-height: 1.45; color: var(--ink);
+    word-break: break-word; font-weight: 500;
+  }
+  .info-cell .val.em { color: var(--accent); font-weight: 600; }
+  .contact-list { display: flex; flex-direction: column; gap: 8px; }
+  .contact-item {
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+    padding: 8px 10px; background: #f4f8f6; border-radius: 8px;
+    border: 1px solid var(--line-soft); font-size: 13px;
+  }
+  .contact-item .del {
+    margin-left: auto; width: auto; padding: 4px 8px; font-size: 11px;
+    background: #fff; color: #a33b2b; border: 1px solid #e8cfc8;
+  }
+  .edit-grid {
+    display: grid; grid-template-columns: 76px 1fr; gap: 8px 10px;
+    align-items: center; font-size: 13px;
+  }
+  .edit-grid label { margin: 0; font-size: 12px; color: var(--muted); }
+  .edit-grid input, .edit-grid select, .edit-grid textarea {
+    width: 100%; margin: 0; padding: 7px 9px; font-size: 13px;
+  }
+  .edit-actions { display: flex; gap: 8px; margin-top: 12px; }
+  .edit-actions button { width: auto; min-width: 88px; }
+  .add-contact {
+    display: grid; grid-template-columns: 90px 1fr auto; gap: 8px;
+    margin-top: 10px; align-items: center;
+  }
+  .add-contact button { width: auto; }
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: var(--ink); color: #fff; padding: 10px 16px; border-radius: 8px;
+    font-size: 13px; z-index: 60; opacity: 0; pointer-events: none;
+    transition: opacity .2s;
+  }
+  .toast.on { opacity: 1; }
+  .contact-type {
+    font-size: 11px; font-weight: 600; color: var(--accent);
+    background: var(--accent-soft); padding: 2px 6px; border-radius: 4px;
+  }
+  .scope-box {
+    font-size: 13px; line-height: 1.7; color: #2c3b34;
+    padding: 12px 14px; background: #f5f8f6; border-radius: 8px;
+    border: 1px solid var(--line-soft); max-height: 280px; overflow: auto;
+  }
+
+  .hint { font-size: 11px; color: var(--muted); margin-top: 4px; line-height: 1.4; }
+  .match-banner {
+    display: none; margin-bottom: 12px; padding: 10px 14px;
+    background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 28%, white);
+    border-radius: var(--radius); font-size: 13px; color: var(--accent);
+    font-weight: 600;
+  }
+  .match-banner.on { display: block; }
+  .phone-line { font-size: 12px; color: #2a5c4c; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .copyable {
+    cursor: pointer; border-bottom: 1px dashed color-mix(in srgb, var(--accent) 45%, transparent);
+    transition: color .15s, background .15s;
+  }
+  .copyable:hover { color: var(--accent); background: rgba(13,107,85,.06); }
+  .contact-item b.copyable { font-variant-numeric: tabular-nums; }
+  .info-cell .val.copyable, .scope-box.copyable {
+    border-bottom: none; display: block; border-radius: 4px; padding: 2px 0;
+  }
+  .info-cell .val.copyable:hover, .scope-box.copyable:hover {
+    background: rgba(13,107,85,.06);
+  }
+  #detail .drawer-hd .copyable { border-bottom-color: transparent; }
+  #detail .drawer-hd .copyable:hover { border-bottom-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+  .copy-hint {
+    font-size: 11px; color: var(--muted); margin: 0 16px 4px;
+  }
+  @media (max-width: 1280px) {
+    .layout { grid-template-columns: 250px minmax(0, 1fr) minmax(300px, 360px); }
+    th:nth-child(3), td:nth-child(3) { display: none; }
+  }
+  @media (max-width: 980px) {
+    .layout { grid-template-columns: 1fr; }
+    #filters, #detail { position: static; max-height: none; overflow: visible; }
+    #filters .filters-scroll { overflow: visible; max-height: none; }
+    .stats, .charts { grid-template-columns: 1fr 1fr; }
+    th:nth-child(3), td:nth-child(3) { display: table-cell; }
+  }
+  @media (max-width: 640px) {
+    .stats { grid-template-columns: 1fr 1fr; }
+    .charts { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <i class="brand-mark"></i>
+    <div class="brand-text">
+      <div class="brand-name">白泽之眼<span>线索池</span></div>
+      <div class="brand-co">白泽云析 · 工商大数据</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <a class="nav-link" id="linkMap" href="/map">地图拓客</a>
+    <div class="meta" id="health">连接中…</div>
+  </div>
+</header>
+
+<div class="layout">
+  <aside class="panel" id="filters">
+    <h3>筛选条件</h3>
+    <div class="filters-scroll">
+    <label>检索词</label>
+    <input id="q" placeholder="输入后勾选下方维度再查询" />
+    <div class="chips q-fields" id="qFields">
+      <span class="chip on" data-f="company">公司名</span>
+      <span class="chip" data-f="person">人名</span>
+      <span class="chip" data-f="mobile">手机号</span>
+      <span class="chip" data-f="email">邮箱</span>
+      <span class="chip" data-f="credit">信用代码</span>
+      <span class="chip" data-f="scope">经营范围</span>
+      <span class="chip" data-f="address">地址</span>
+      <span class="chip q-field-all" data-f="all" title="勾选全部维度">全选</span>
+      <span class="chip q-field-auto" data-f="auto" title="按内容自动识别类型">智能</span>
+    </div>
+    <div class="hint" id="qHint">默认「公司名」最快；多选为 OR；全选≈万能检索。经营范围/地址可能较慢。</div>
+
+    <label>省份</label>
+    <select id="province"><option value="">全部</option></select>
+    <div class="row2">
+      <div>
+        <label>城市</label>
+        <select id="city"><option value="">全部</option></select>
+      </div>
+      <div>
+        <label>区县</label>
+        <select id="district"><option value="">全部</option></select>
+      </div>
+    </div>
+    <label>街道 / 镇</label>
+    <select id="street"><option value="">全部</option></select>
+
+    <label>国标行业门类</label>
+    <select id="industry_l1"><option value="">全部</option></select>
+
+    <label>企业规模</label>
+    <select id="scale"><option value="">全部</option></select>
+
+    <label>登记状态</label>
+    <select id="status">
+      <option value="存续" selected>存续</option>
+      <option value="">全部</option>
+      <option value="注销">注销</option>
+      <option value="吊销">吊销</option>
+      <option value="迁出">迁出</option>
+    </select>
+
+    <!-- 侧栏低频筛选暂隐藏（.row2 的 display:grid 会盖掉 hidden，故用 style） -->
+    <div style="display:none">
+      <div class="row2">
+        <div>
+          <label>注册资本 ≥ 万</label>
+          <input id="capital_min" type="number" min="0" placeholder="0" />
+        </div>
+        <div>
+          <label>注册资本 ≤ 万</label>
+          <input id="capital_max" type="number" min="0" placeholder="不限" />
+        </div>
+      </div>
+      <div class="row2">
+        <div>
+          <label>成立年限 ≥</label>
+          <input id="age_min" type="number" min="0" step="0.1" />
+        </div>
+        <div>
+          <label>成立年限 ≤</label>
+          <input id="age_max" type="number" min="0" step="0.1" />
+        </div>
+      </div>
+      <div class="row2">
+        <div>
+          <label>参保人数 ≥</label>
+          <input id="insured_min" type="number" min="0" />
+        </div>
+        <div>
+          <label>参保人数 ≤</label>
+          <input id="insured_max" type="number" min="0" />
+        </div>
+      </div>
+      <label>经营范围关键词</label>
+      <input id="scope_kw" placeholder="MATCH 分词检索" />
+      <label>地址关键词</label>
+      <input id="addr_kw" placeholder="园区 / 街道" />
+      <label>触达方式</label>
+      <div class="chips" id="reach">
+        <span class="chip" data-k="has_contact">有联系方式</span>
+        <span class="chip" data-k="has_mobile">有手机</span>
+        <span class="chip" data-k="has_landline">有座机</span>
+        <span class="chip" data-k="has_email">有邮箱</span>
+      </div>
+    </div>
+    </div>
+
+    <div class="filter-foot">
+      <div class="actions">
+        <button type="button" id="btnSearch">查询</button>
+        <button type="button" class="secondary" id="btnReset">重置</button>
+      </div>
+      <div class="actions">
+        <button type="button" class="secondary" id="btnExport">导出 CSV</button>
+      </div>
+    </div>
+  </aside>
+
+  <main class="workbench">
+    <div class="search-progress" aria-hidden="true"><i></i></div>
+    <div class="dataflow" id="dataflow" aria-live="polite">
+      <div class="dataflow-stream" id="dataflowStream" aria-hidden="true"></div>
+      <div class="dataflow-hd">
+        <div class="dataflow-mode" id="dataflowMode">地域扫描<em>SCAN</em></div>
+        <div class="dataflow-note" id="dataflowNote">白泽之眼 · 线索过滤</div>
+      </div>
+      <div class="dataflow-focus" id="dataflowFocus"><span>—</span></div>
+      <div class="dataflow-meta">
+        <span>游标 <b id="dataflowCursor">0</b>/<b id="dataflowTotal">0</b></span>
+        <span>过滤层 <b id="dataflowStage">初始化</b></span>
+        <span id="dataflowHint">—</span>
+      </div>
+      <div class="dataflow-rail" id="dataflowRail"></div>
+      <div class="dataflow-log" id="dataflowLog"></div>
+    </div>
+    <div class="match-banner" id="matchBanner"></div>
+    <div class="stats" id="stats">
+      <div class="stat"><div class="n" id="s_total">—</div><div class="l">命中企业</div></div>
+      <div class="stat"><div class="n" id="s_mobile">—</div><div class="l">有手机</div></div>
+      <div class="stat"><div class="n" id="s_email">—</div><div class="l">有邮箱</div></div>
+      <div class="stat"><div class="n" id="s_contact">—</div><div class="l">可触达</div></div>
+    </div>
+
+    <div class="charts">
+      <div class="panel"><h3>省份分布</h3><div id="chart_prov"></div></div>
+      <div class="panel"><h3>行业门类 Top</h3><div id="chart_ind"></div></div>
+    </div>
+
+    <div class="panel list-panel">
+      <div class="toolbar">
+        <div class="count" id="pageInfo">—</div>
+        <div class="sort-box">
+          <select id="sort">
+            <option value="capital_wan">按注册资本</option>
+            <option value="insured_count">按参保人数</option>
+            <option value="company_age">按成立年限</option>
+            <option value="established_year">按成立年份</option>
+            <option value="mobile_count">按手机数</option>
+          </select>
+          <select id="order">
+            <option value="desc">降序</option>
+            <option value="asc">升序</option>
+          </select>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>企业</th><th>地域</th><th>行业</th><th>资本 / 规模</th><th>触达</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+      <div class="pager">
+        <button class="secondary" id="prev">上一页</button>
+        <span class="page-pill" id="pageNum">1</span>
+        <button class="secondary" id="next">下一页</button>
+      </div>
+    </div>
+  </main>
+
+  <aside class="panel empty" id="detail">
+    <div class="detail-empty" id="detailEmpty">
+      <div class="ico">企</div>
+      <strong>企业详情</strong>
+      <p>在中间列表点击一家企业，详情将显示在此栏</p>
+    </div>
+    <div class="drawer-hd">
+      <div class="top">
+        <div>
+          <h2 id="d_name">—</h2>
+          <div class="drawer-code" id="d_code"></div>
+        </div>
+        <div class="hd-actions">
+          <button type="button" class="btn-edit" id="btnEdit">编辑</button>
+          <button type="button" class="btn-cancel-edit" id="btnCancelEdit">取消</button>
+          <button type="button" class="close" id="closeDrawer">清除</button>
+        </div>
+      </div>
+    </div>
+    <div class="detail-body">
+      <div class="copy-hint view-only">提示：点击任意字段即可复制</div>
+      <div class="sec-title">基本信息</div>
+      <div class="info-grid view-only" id="d_kv"></div>
+      <div class="edit-only">
+        <div class="edit-grid" id="d_edit">
+          <label>状态</label><select id="e_status">
+            <option value="存续">存续</option><option value="在业">在业</option>
+            <option value="注销">注销</option><option value="吊销">吊销</option>
+            <option value="迁出">迁出</option>
+          </select>
+          <label>法人</label><input id="e_legal" />
+          <label>规模</label><select id="e_scale">
+            <option value="">—</option><option>大型</option><option>中型</option>
+            <option>小型</option><option>微型</option>
+          </select>
+          <label>注册资本</label><input id="e_capital" type="number" step="0.01" placeholder="万元" />
+          <label>省份</label><input id="e_province" />
+          <label>城市</label><input id="e_city" />
+          <label>区县</label><input id="e_district" />
+          <label>街道</label><input id="e_street" />
+          <label>行业</label><input id="e_industry" />
+          <label>地址</label><input id="e_address" />
+          <label>网址</label><input id="e_website" />
+        </div>
+        <div class="edit-actions">
+          <button type="button" id="btnSaveCompany">保存公司信息</button>
+        </div>
+      </div>
+
+      <div class="sec-title">联系方式</div>
+      <div id="d_contacts" class="contact-list muted">—</div>
+      <div class="add-contact edit-only">
+        <select id="e_ctype">
+          <option value="mobile">手机</option>
+          <option value="landline">座机</option>
+          <option value="email">邮箱</option>
+        </select>
+        <input id="e_cvalue" placeholder="输入号码或邮箱" />
+        <button type="button" id="btnAddContact">添加</button>
+      </div>
+
+      <div class="sec-title">经营范围</div>
+      <div class="scope-box view-only" id="d_scope"></div>
+      <div class="edit-only">
+        <textarea id="e_scope" rows="6" style="width:100%;resize:vertical;line-height:1.55"></textarea>
+        <div class="edit-actions">
+          <button type="button" class="secondary" id="btnSaveScope">保存经营范围</button>
+        </div>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const state = {
+  page: 1, pageSize: 20, total: 0, reach: {},
+  detailCode: "", editing: false, detail: null,
+  searchSeq: 0, searchAbort: null,
+  facetProvinces: [],
+  dataflow: { timer: null, streamTimer: null, idx: 0, pool: [], stages: [] },
+  qFields: new Set(["company"]),
+  qAuto: false,
+};
+
+const Q_FIELD_KEYS = ["company", "person", "mobile", "email", "credit", "scope", "address"];
+const Q_FIELD_PLACEHOLDER = {
+  company: "公司名称，如：杭州国科智飞",
+  person: "法人姓名，精确匹配",
+  mobile: "11 位手机号",
+  email: "邮箱地址",
+  credit: "统一社会信用代码",
+  scope: "经营范围关键词",
+  address: "地址关键词",
+  auto: "智能识别：公司名 / 人名 / 手机 / 邮箱 / 代码",
+  multi: "已选多维度，将按勾选项分别匹配（OR）",
+};
+
+function syncQFieldUI() {
+  const box = document.getElementById("qFields");
+  if (!box) return;
+  box.querySelectorAll(".chip[data-f]").forEach(chip => {
+    const f = chip.dataset.f;
+    if (f === "auto") chip.classList.toggle("on", !!state.qAuto);
+    else if (f === "all") {
+      const allOn = !state.qAuto && Q_FIELD_KEYS.every(k => state.qFields.has(k));
+      chip.classList.toggle("on", allOn);
+    } else chip.classList.toggle("on", !state.qAuto && state.qFields.has(f));
+  });
+  const q = document.getElementById("q");
+  if (!q) return;
+  if (state.qAuto) q.placeholder = Q_FIELD_PLACEHOLDER.auto;
+  else if (state.qFields.size === 1) {
+    const only = [...state.qFields][0];
+    q.placeholder = Q_FIELD_PLACEHOLDER[only] || "输入检索词";
+  } else if (state.qFields.size > 1) q.placeholder = Q_FIELD_PLACEHOLDER.multi;
+  else q.placeholder = "请先勾选至少一个检索维度";
+  const hint = document.getElementById("qHint");
+  if (hint) {
+    if (state.qAuto) hint.textContent = "智能模式：按输入内容自动判别类型（兼容旧习惯）";
+    else if (state.qFields.has("scope") || state.qFields.has("address")) {
+      hint.textContent = "已含经营范围/地址：可能较慢；公司名/人名/手机通常更快。";
+    } else if (state.qFields.size === 0) {
+      hint.textContent = "请至少勾选一个维度，或点「智能」。";
+    } else {
+      hint.textContent = "多选为 OR；全选≈万能检索。默认「公司名」走倒排索引，通常最快。";
+    }
+  }
+}
+
+function currentQFieldsParam() {
+  if (state.qAuto) return ""; // 后端智能识别
+  if (!state.qFields.size) return "company"; // 兜底
+  return [...state.qFields].join(",");
+}
+
+const PROVINCE_FALLBACK = [
+  "北京市","天津市","河北省","山西省","内蒙古自治区","辽宁省","吉林省","黑龙江省",
+  "上海市","江苏省","浙江省","安徽省","福建省","江西省","山东省","河南省",
+  "湖北省","湖南省","广东省","广西壮族自治区","海南省","重庆市","四川省","贵州省",
+  "云南省","西藏自治区","陕西省","甘肃省","青海省","宁夏回族自治区","新疆维吾尔自治区",
+];
+
+function selectOptions(id) {
+  return [...document.getElementById(id).options]
+    .map(o => o.value.trim())
+    .filter(Boolean);
+}
+
+/** 无省市区街道 = 全国按省真实扫描；仅选省则按市扫描 */
+function buildScanPlan() {
+  const prov = val("province");
+  const city = val("city");
+  const dist = val("district");
+  const street = val("street");
+  if (street || dist || city) {
+    return { mode: "单域检索", scope: [prov, city, dist, street].filter(Boolean).join(" · "), units: null, unitKey: null, national: false };
+  }
+  if (prov) {
+    const cities = selectOptions("city");
+    return {
+      mode: "省份扫描",
+      scope: prov,
+      units: cities.length ? cities : [prov],
+      unitKey: cities.length ? "city" : null,
+      national: false,
+      parent: { province: prov },
+    };
+  }
+  const provinces = (state.facetProvinces || []).length
+    ? state.facetProvinces.slice()
+    : PROVINCE_FALLBACK.slice();
+  return {
+    mode: "全国扫描",
+    scope: `${provinces.length} 省市区联动`,
+    units: provinces,
+    unitKey: "province",
+    national: true,
+    parent: {},
+  };
+}
+
+function stopDataflow() {
+  clearInterval(state.dataflow.timer);
+  clearInterval(state.dataflow.streamTimer);
+  state.dataflow.timer = null;
+  state.dataflow.streamTimer = null;
+  const stream = document.getElementById("dataflowStream");
+  if (stream) stream.innerHTML = "";
+}
+
+function pushFlowLog(line, hi = false) {
+  const log = document.getElementById("dataflowLog");
+  if (!log) return;
+  const row = document.createElement("div");
+  if (hi) row.className = "hi";
+  const t = new Date();
+  const ts = [t.getHours(), t.getMinutes(), t.getSeconds()]
+    .map(n => String(n).padStart(2, "0")).join(":");
+  row.textContent = `${ts}  ${line}`;
+  log.prepend(row);
+  while (log.children.length > 6) log.lastChild.remove();
+}
+
+function spawnStreamGlyph(name) {
+  const box = document.getElementById("dataflowStream");
+  if (!box || !name) return;
+  const el = document.createElement("b");
+  el.textContent = name;
+  el.style.left = `${8 + Math.random() * 84}%`;
+  el.style.top = `${6 + Math.random() * 18}%`;
+  el.style.animationDuration = `${1.6 + Math.random() * 1.4}s`;
+  box.appendChild(el);
+  setTimeout(() => el.remove(), 3200);
+  if (box.children.length > 18) box.firstChild.remove();
+}
+
+function beginRealFlow(plan, hintText) {
+  stopDataflow();
+  const n = (plan.units && plan.units.length) || 1;
+  state.dataflow = {
+    timer: null, streamTimer: null, idx: 0,
+    pool: plan.units || [plan.scope || "检索域"],
+    stages: [],
+    done: 0,
+    hitAcc: 0,
+    real: true,
+  };
+  document.getElementById("dataflowMode").innerHTML =
+    `${escHtml(plan.mode)}<em>${plan.national ? "NATION" : "REGION"}</em>`;
+  document.getElementById("dataflowNote").textContent = plan.scope;
+  document.getElementById("dataflowHint").textContent = hintText || "按区划真实请求中";
+  document.getElementById("dataflowRail").innerHTML = "";
+  document.getElementById("dataflowLog").innerHTML = "";
+  document.getElementById("dataflowCursor").textContent = "0";
+  document.getElementById("dataflowTotal").textContent = String(n);
+  document.getElementById("dataflowStage").textContent = plan.units ? "分片检索" : "单次检索";
+  document.getElementById("dataflowFocus").innerHTML = `<span>${escHtml(plan.units ? "准备中" : (plan.scope || "—"))}</span>`;
+  pushFlowLog(`启动 ${plan.mode} · ${plan.scope}${plan.units ? ` · ${n} 片` : ""}`, true);
+}
+
+function flowMarkUnit(name, { done, total, hits, ms, stage }) {
+  const focus = document.getElementById("dataflowFocus");
+  if (focus) focus.innerHTML = `<span>${escHtml(name)}</span>`;
+  document.getElementById("dataflowCursor").textContent = String(done);
+  document.getElementById("dataflowTotal").textContent = String(total);
+  document.getElementById("dataflowStage").textContent = stage || (hits > 0 ? "命中" : "无命中");
+  document.getElementById("dataflowHint").textContent =
+    `累计命中 ${fmt(state.dataflow.hitAcc)} · 已扫描 ${done}/${total}`;
+  const rail = document.getElementById("dataflowRail");
+  if (rail) {
+    const chip = document.createElement("span");
+    chip.className = "dataflow-chip on" + (hits > 0 ? "" : " dim");
+    chip.textContent = hits > 0 ? `${name} ${hits}` : name;
+    rail.querySelectorAll(".dataflow-chip.on").forEach(c => {
+      c.classList.remove("on");
+      c.classList.add("dim");
+    });
+    rail.prepend(chip);
+    while (rail.children.length > 14) rail.lastChild.remove();
+  }
+  spawnStreamGlyph(name);
+  const msPart = ms != null ? ` · ${Math.round(ms)}ms` : "";
+  pushFlowLog(`${name} · 命中 ${fmt(hits)}${msPart}`, hits > 0);
+}
+
+function setSearching(on, text) {
+  const wb = document.querySelector("main.workbench");
+  if (wb) wb.classList.toggle("is-loading", !!on);
+  const btn = document.getElementById("btnSearch");
+  if (btn) {
+    btn.disabled = !!on;
+    btn.textContent = on ? "查询中…" : "查询";
+  }
+  if (!on) stopDataflow();
+  else if (text) {
+    const hint = document.getElementById("dataflowHint");
+    if (hint) hint.textContent = text;
+  }
+}
+
+function isAbortError(e) {
+  return e && (e.name === "AbortError" || e.code === 20);
+}
+
+/** 手机/邮箱/信用代码等精确类：找到即可提前结束剩余分片 */
+function isExactLeadQuery() {
+  const q = val("q").trim();
+  if (!q) return false;
+  const digits = q.replace(/\D/g, "");
+  if (state.qAuto) {
+    return (
+      /^1[3-9]\d{9}$/.test(digits) ||
+      q.includes("@") ||
+      /^[0-9A-Za-z]{15,18}$/.test(q.replace(/\s/g, ""))
+    );
+  }
+  if (state.qFields.size === 1) {
+    const only = [...state.qFields][0];
+    return only === "mobile" || only === "email" || only === "credit";
+  }
+  return state.qFields.size > 0 &&
+    [...state.qFields].every(f => f === "mobile" || f === "email" || f === "credit");
+}
+
+function sortMergedItems(items, sortCol, order) {
+  const dir = order === "asc" ? 1 : -1;
+  const key = sortCol || "capital_wan";
+  return items.slice().sort((a, b) => {
+    let va = a[key], vb = b[key];
+    if (key === "company_name") {
+      va = va || ""; vb = vb || "";
+      if (va < vb) return -1 * dir;
+      if (va > vb) return 1 * dir;
+      return 0;
+    }
+    const na = va == null || va === "" ? null : Number(va);
+    const nb = vb == null || vb === "" ? null : Number(vb);
+    if (na == null && nb == null) return 0;
+    if (na == null) return 1;
+    if (nb == null) return -1;
+    if (na < nb) return -1 * dir;
+    if (na > nb) return 1 * dir;
+    return 0;
+  });
+}
+
+async function mapPool(units, concurrency, worker, signal) {
+  const results = new Array(units.length);
+  let cursor = 0;
+  async function run() {
+    while (cursor < units.length) {
+      if (signal && signal.aborted) throw new DOMException("Aborted", "AbortError");
+      const i = cursor++;
+      results[i] = await worker(units[i], i);
+    }
+  }
+  const n = Math.max(1, Math.min(concurrency, units.length));
+  await Promise.all(Array.from({ length: n }, () => run()));
+  return results;
+}
+
+async function searchByUnits(plan, filterQs, listMeta, signal) {
+  const units = plan.units;
+  const fetchSize = Math.min(50, Math.max(listMeta.pageSize, listMeta.page * listMeta.pageSize));
+  const exact = isExactLeadQuery();
+  let hitAcc = 0;
+  let done = 0;
+  let qKind = "";
+  let qKindLabel = "";
+  const byProv = [];
+  const bag = [];
+  let earlyStop = false;
+  const localAbort = new AbortController();
+  const onAbort = () => localAbort.abort();
+  if (signal) {
+    if (signal.aborted) throw new DOMException("Aborted", "AbortError");
+    signal.addEventListener("abort", onAbort, { once: true });
+  }
+  const mergedSignal = localAbort.signal;
+
+  try {
+    await mapPool(units, exact ? 6 : 4, async (unit) => {
+      if (earlyStop || mergedSignal.aborted) return null;
+      const p = new URLSearchParams(filterQs);
+      if (plan.unitKey === "province") p.set("province", unit);
+      else if (plan.unitKey === "city") {
+        if (plan.parent.province) p.set("province", plan.parent.province);
+        p.set("city", unit);
+      }
+      p.set("page", "1");
+      p.set("page_size", String(fetchSize));
+      if (listMeta.sort) p.set("sort", listMeta.sort);
+      if (listMeta.order) p.set("order", listMeta.order);
+
+      const t0 = performance.now();
+      let data;
+      try {
+        data = await jget("/api/search?" + p.toString(), mergedSignal);
+      } catch (e) {
+        if (isAbortError(e) || earlyStop) return null;
+        done += 1;
+        flowMarkUnit(unit, { done, total: units.length, hits: 0, ms: performance.now() - t0, stage: "失败" });
+        pushFlowLog(`${unit} · 请求失败：${e.message || e}`, false);
+        return null;
+      }
+      const ms = performance.now() - t0;
+      const hits = Number(data.total) || 0;
+      hitAcc += hits;
+      state.dataflow.hitAcc = hitAcc;
+      done += 1;
+      if (data.q_kind) qKind = data.q_kind;
+      if (data.q_kind_label) qKindLabel = data.q_kind_label;
+      byProv.push({ k: unit, n: hits });
+      (data.items || []).forEach(it => bag.push(it));
+      flowMarkUnit(unit, { done, total: units.length, hits, ms, stage: hits ? "命中写入" : "跳过" });
+      document.getElementById("s_total").textContent = fmt(hitAcc);
+      bars(
+        document.getElementById("chart_prov"),
+        byProv.filter(x => x.n > 0).sort((a, b) => b.n - a.n).slice(0, 12)
+      );
+
+      if (exact && hits > 0) {
+        earlyStop = true;
+        localAbort.abort();
+      }
+      return data;
+    }, mergedSignal);
+  } catch (e) {
+    if (!(earlyStop && isAbortError(e))) throw e;
+  } finally {
+    if (signal) signal.removeEventListener("abort", onAbort);
+  }
+
+  // 精确命中提前停下时，未扫完的分片不计总数（手机号等全局唯一）
+  const items = sortMergedItems(bag, listMeta.sort, listMeta.order);
+  const offset = (listMeta.page - 1) * listMeta.pageSize;
+  const pageItems = items.slice(offset, offset + listMeta.pageSize);
+  byProv.sort((a, b) => b.n - a.n);
+
+  return {
+    total: hitAcc,
+    page: listMeta.page,
+    page_size: listMeta.pageSize,
+    items: pageItems,
+    q_kind: qKind,
+    q_kind_label: earlyStop
+      ? `${qKindLabel || "精确命中"} · 分片扫描已提前结束（${done}/${units.length}）`
+      : `${qKindLabel || plan.mode} · 已合并 ${done} 片`,
+    by_province: byProv.filter(x => x.n > 0).slice(0, 12),
+    earlyStop,
+    scanned: done,
+    fromUnits: true,
+  };
+}
+
+function renderResultRows(items) {
+  const tb = document.getElementById("tbody");
+  tb.innerHTML = (items || []).map(r => {
+    const phones = (r.contacts_preview || [])
+      .map(x => x.contact_value)
+      .filter(Boolean)
+      .slice(0, 3);
+    const phoneHtml = phones.length
+      ? `<div class="phone-line">${phones.map(p => copyable(p)).join(" / ")}</div>`
+      : "";
+    const geo = [r.province, r.city, r.district, r.street].filter(Boolean).join(" / ");
+    return `
+    <tr data-code="${escHtml(r.credit_code)}">
+      <td>
+        <div class="name">${copyable(r.company_name)}</div>
+        <div class="sub">${copyable(r.legal_person || "—")} · ${copyable(r.status || "")}</div>
+        ${phoneHtml}
+      </td>
+      <td><div class="geo">${copyable(geo || "—")}</div></td>
+      <td>${copyable(r.industry_l1 || "—")}<div class="sub">${copyable(r.industry_l2 || "")}</div></td>
+      <td><strong>${copyable(r.capital_wan != null ? String(r.capital_wan) : "", money(r.capital_wan))}</strong><div class="sub">${copyable(r.scale || "")} · 参保 ${copyable(r.insured_count != null ? String(r.insured_count) : "—")}</div></td>
+      <td>
+        ${r.has_mobile ? '<span class="tag">手机</span>' : ''}
+        ${r.has_landline ? '<span class="tag">座机</span>' : ''}
+        ${r.has_email ? '<span class="tag">邮箱</span>' : ''}
+        ${!r.has_contact ? '<span class="tag warn">无触达</span>' : ''}
+      </td>
+    </tr>`;
+  }).join("") || '<tr><td colspan="5" class="muted">无结果</td></tr>';
+}
+
+function setEditing(on) {
+  state.editing = !!on;
+  document.getElementById("detail").classList.toggle("editing", state.editing);
+  if (state.editing && state.detail) fillEditForm(state.detail.company);
+  renderContacts((state.detail && state.detail.contacts) || []);
+}
+
+function fillEditForm(c) {
+  if (!c) return;
+  document.getElementById("e_status").value = c.status || "存续";
+  document.getElementById("e_legal").value = c.legal_person || "";
+  document.getElementById("e_scale").value = c.scale || "";
+  document.getElementById("e_capital").value = c.capital_wan != null ? c.capital_wan : "";
+  document.getElementById("e_province").value = c.province || "";
+  document.getElementById("e_city").value = c.city || "";
+  document.getElementById("e_district").value = c.district || "";
+  document.getElementById("e_street").value = c.street || "";
+  document.getElementById("e_industry").value = c.industry_l1 || "";
+  document.getElementById("e_address").value = c.address || "";
+  document.getElementById("e_website").value = c.website || "";
+  document.getElementById("e_scope").value = c.scope || "";
+}
+
+function val(id) { return document.getElementById(id).value.trim(); }
+
+/** 列表 / 地图共享的查询键（不含分页与呈现） */
+const QUERY_KEYS = ["q","province","city","district","street","industry_l1","scale","status",
+  "capital_min","capital_max","age_min","age_max","insured_min","insured_max",
+  "scope_kw","addr_kw"];
+const REACH_KEYS = ["has_mobile","has_landline","has_email","has_contact"];
+
+function queryParams() {
+  const p = new URLSearchParams();
+  QUERY_KEYS.forEach(k => { const v = val(k); if (v) p.set(k, v); });
+  Object.entries(state.reach).forEach(([k,v]) => { if (v) p.set(k, "1"); });
+  const qf = currentQFieldsParam();
+  if (qf) p.set("q_fields", qf);
+  else if (state.qAuto) p.set("q_fields", "auto");
+  return p;
+}
+
+function params() {
+  const p = queryParams();
+  const sort = val("sort"); const order = val("order");
+  if (sort) p.set("sort", sort);
+  if (order) p.set("order", order);
+  p.set("page", state.page);
+  p.set("page_size", state.pageSize);
+  return p;
+}
+
+function syncListUrl() {
+  const p = queryParams();
+  const sort = val("sort"); const order = val("order");
+  if (sort && sort !== "capital_wan") p.set("sort", sort);
+  if (order && order !== "desc") p.set("order", order);
+  if (state.page > 1) p.set("page", state.page);
+  const qs = p.toString();
+  history.replaceState(null, "", qs ? ("/?" + qs) : "/");
+  const mapLink = document.getElementById("linkMap");
+  if (mapLink) mapLink.href = qs ? ("/map?" + qs) : "/map";
+}
+
+/** 列表默认地域：缩小首屏扫描范围，加快打开速度 */
+const DEFAULT_PROVINCE = "江苏省";
+const DEFAULT_CITY = "南京市";
+
+async function applyDefaultRegion() {
+  const prov = document.getElementById("province");
+  const city = document.getElementById("city");
+  if (!prov.value) {
+    if ([...prov.options].some(o => o.value === DEFAULT_PROVINCE)) {
+      prov.value = DEFAULT_PROVINCE;
+    }
+  }
+  if (!prov.value) return;
+  await loadCities();
+  if (!city.value && [...city.options].some(o => o.value === DEFAULT_CITY)) {
+    city.value = DEFAULT_CITY;
+  }
+  if (city.value) await loadDistricts();
+}
+
+async function applyUrlToFilters() {
+  const u = new URLSearchParams(location.search);
+  QUERY_KEYS.forEach(k => {
+    const el = document.getElementById(k);
+    if (el && u.has(k)) el.value = u.get(k);
+  });
+  if (u.get("sort")) document.getElementById("sort").value = u.get("sort");
+  if (u.get("order")) document.getElementById("order").value = u.get("order");
+  if (u.get("page")) state.page = Math.max(1, parseInt(u.get("page"), 10) || 1);
+  state.reach = {};
+  document.querySelectorAll("#reach .chip").forEach(c => {
+    const k = c.dataset.k;
+    const on = u.get(k) === "1";
+    c.classList.toggle("on", on);
+    if (on) state.reach[k] = true;
+  });
+
+  const qf = (u.get("q_fields") || "").trim().toLowerCase();
+  if (qf === "auto" || qf === "smart") {
+    state.qAuto = true;
+    state.qFields = new Set();
+  } else if (qf) {
+    state.qAuto = false;
+    state.qFields = new Set(
+      qf.split(/[,，]/).map(s => s.trim()).filter(s => Q_FIELD_KEYS.includes(s))
+    );
+    if (!state.qFields.size) state.qFields.add("company");
+  } else {
+    state.qAuto = false;
+    state.qFields = new Set(["company"]);
+  }
+  syncQFieldUI();
+
+  // 地图常只带 city；若无省则先拉全部城市以匹配选项
+  if (val("province")) {
+    await loadCities();
+  } else if (u.get("city")) {
+    const city = document.getElementById("city");
+    city.innerHTML = '<option value="">全部</option>';
+    try {
+      const rows = await jget("/api/cities");
+      rows.forEach(r => {
+        const o = document.createElement("option");
+        o.value = r.k; o.textContent = `${r.k}（${fmt(r.n)}）`;
+        city.appendChild(o);
+      });
+    } catch (_) {}
+  }
+  if (u.has("city") && document.getElementById("city")) {
+    document.getElementById("city").value = u.get("city");
+  }
+  if (val("city")) await loadDistricts();
+  if (u.has("district") && document.getElementById("district")) {
+    document.getElementById("district").value = u.get("district");
+  }
+  if (val("district")) await loadStreets();
+  if (u.has("street") && document.getElementById("street")) {
+    document.getElementById("street").value = u.get("street");
+  }
+
+  // URL 未指定省/市且无检索词时，默认江苏南京（全库扫描太慢）
+  // 有检索词时不锁地域，避免列表按省过滤、统计却按全国汇总的错位感
+  if (!u.has("province") && !u.has("city") && !u.get("q")) {
+    await applyDefaultRegion();
+  }
+}
+
+async function jget(url, signal) {
+  const r = await fetch(url, signal ? { signal } : undefined);
+  if (!r.ok) {
+    const raw = await r.text();
+    let msg = raw;
+    try {
+      const j = JSON.parse(raw);
+      if (j && j.detail) msg = typeof j.detail === "string" ? j.detail : JSON.stringify(j.detail);
+    } catch (_) {}
+    throw new Error(msg);
+  }
+  return r.json();
+}
+async function jsend(url, method, body) {
+  const r = await fetch(url, {
+    method,
+    headers: body ? { "Content-Type": "application/json" } : undefined,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+function toast(msg) {
+  const el = document.getElementById("toast");
+  el.textContent = msg;
+  el.classList.add("on");
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => el.classList.remove("on"), 2200);
+}
+async function copyText(text) {
+  const t = String(text || "").trim();
+  if (!t) return;
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(t);
+    } else {
+      const ta = document.createElement("textarea");
+      ta.value = t;
+      ta.style.position = "fixed";
+      ta.style.left = "-9999px";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+    }
+    toast("已复制：" + t);
+  } catch (e) {
+    prompt("复制失败，请手动复制：", t);
+  }
+}
+
+function fmt(n) {
+  if (n == null || n === "—") return "—";
+  return Number(n).toLocaleString("zh-CN");
+}
+function escHtml(s) {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+function copyable(text, display) {
+  const raw = String(text ?? "").trim();
+  const show = display != null ? String(display) : (raw || "—");
+  if (!raw || raw === "—") return escHtml(show);
+  return `<span class="copyable" data-copy="${escHtml(raw)}" title="点击复制">${escHtml(show)}</span>`;
+}
+function money(n) {
+  if (n == null || n === "") return "—";
+  const v = Number(n);
+  if (Number.isNaN(v)) return "—";
+  if (v >= 10000) return (v / 10000).toLocaleString("zh-CN", { maximumFractionDigits: 2 }) + " 亿";
+  return v.toLocaleString("zh-CN", { maximumFractionDigits: 2 }) + " 万";
+}
+
+function renderView(c) {
+  const capitalShow = money(c.capital_wan) + (c.capital_raw ? `（${c.capital_raw}）` : "");
+  const capitalCopy = c.capital_raw || (c.capital_wan != null ? String(c.capital_wan) : "");
+  const region = [c.province, c.city, c.district, c.street].filter(Boolean).join(" / ") || "—";
+  const industry = [c.industry_l1, c.industry_l2, c.industry_l3].filter(Boolean).join(" / ") || "—";
+  const cells = [
+    { lab: "状态", val: c.status || "—", em: true },
+    { lab: "法人", val: c.legal_person || "—" },
+    { lab: "规模", val: c.scale || "—" },
+    { lab: "注册资本", val: capitalShow, copy: capitalCopy || capitalShow },
+    { lab: "成立", val: c.established || "—" },
+    { lab: "年限", val: c.company_age != null ? c.company_age + " 年" : "—", copy: c.company_age != null ? String(c.company_age) : "" },
+    { lab: "参保", val: c.insured_count != null ? String(c.insured_count) : "—" },
+    { lab: "网址", val: c.website || "—" },
+    { lab: "地域", val: region, span2: true },
+    { lab: "行业", val: industry, span2: true },
+    { lab: "地址", val: c.address || "—", span2: true },
+  ];
+  document.getElementById("d_kv").innerHTML = cells.map(x => {
+    const copy = (x.copy != null ? x.copy : x.val);
+    const can = copy && copy !== "—";
+    return `
+    <div class="info-cell${x.span2 ? " span2" : ""}">
+      <span class="lab">${escHtml(x.lab)}</span>
+      <div class="val${x.em ? " em" : ""}${can ? " copyable" : ""}"${can ? ` data-copy="${escHtml(copy)}" title="点击复制"` : ""}>${escHtml(x.val)}</div>
+    </div>`;
+  }).join("");
+  const scope = c.scope || "—";
+  const scopeEl = document.getElementById("d_scope");
+  if (scope && scope !== "—") {
+    scopeEl.className = "scope-box view-only copyable";
+    scopeEl.dataset.copy = scope;
+    scopeEl.title = "点击复制";
+    scopeEl.textContent = scope;
+  } else {
+    scopeEl.className = "scope-box view-only";
+    delete scopeEl.dataset.copy;
+    scopeEl.removeAttribute("title");
+    scopeEl.textContent = "—";
+  }
+}
+
+function bars(el, rows) {
+  const max = Math.max(...rows.map(r => r.n), 1);
+  el.innerHTML = rows.slice(0, 8).map(r => `
+    <div class="bar-row">
+      <div title="${r.k}">${(r.k||"").slice(0,6)}</div>
+      <div class="bar"><i style="width:${(r.n/max*100).toFixed(1)}%"></i></div>
+      <div class="muted">${fmt(r.n)}</div>
+    </div>`).join("") || '<div class="muted">暂无</div>';
+}
+
+async function loadFacets() {
+  const f = await jget("/api/facets");
+  const fill = (id, rows) => {
+    const el = document.getElementById(id);
+    rows.forEach(r => {
+      const o = document.createElement("option");
+      o.value = r.k; o.textContent = `${r.k}（${fmt(r.n)}）`;
+      el.appendChild(o);
+    });
+  };
+  fill("province", f.provinces || []);
+  fill("scale", f.scales || []);
+  fill("industry_l1", f.industries || []);
+  state.facetProvinces = (f.provinces || []).map(r => r.k).filter(Boolean);
+  if (!state.facetProvinces.length) state.facetProvinces = PROVINCE_FALLBACK.slice();
+}
+
+async function loadCities() {
+  const p = val("province");
+  const city = document.getElementById("city");
+  const dist = document.getElementById("district");
+  const street = document.getElementById("street");
+  city.innerHTML = '<option value="">全部</option>';
+  dist.innerHTML = '<option value="">全部</option>';
+  street.innerHTML = '<option value="">全部</option>';
+  if (!p) return;
+  const rows = await jget("/api/cities?province=" + encodeURIComponent(p));
+  rows.forEach(r => {
+    const o = document.createElement("option");
+    o.value = r.k; o.textContent = `${r.k}（${fmt(r.n)}）`;
+    city.appendChild(o);
+  });
+}
+
+async function loadDistricts() {
+  const p = val("province"), c = val("city");
+  const dist = document.getElementById("district");
+  const street = document.getElementById("street");
+  dist.innerHTML = '<option value="">全部</option>';
+  street.innerHTML = '<option value="">全部</option>';
+  if (!c) return;
+  const rows = await jget(`/api/districts?province=${encodeURIComponent(p)}&city=${encodeURIComponent(c)}`);
+  rows.forEach(r => {
+    const o = document.createElement("option");
+    o.value = r.k; o.textContent = `${r.k}（${fmt(r.n)}）`;
+    dist.appendChild(o);
+  });
+}
+
+async function loadStreets() {
+  const p = val("province"), c = val("city"), d = val("district");
+  const street = document.getElementById("street");
+  street.innerHTML = '<option value="">全部</option>';
+  if (!d) return;
+  const rows = await jget(
+    `/api/streets?province=${encodeURIComponent(p)}&city=${encodeURIComponent(c)}&district=${encodeURIComponent(d)}`
+  );
+  rows.forEach(r => {
+    const o = document.createElement("option");
+    o.value = r.k; o.textContent = `${r.k}（${fmt(r.n)}）`;
+    street.appendChild(o);
+  });
+}
+
+async function search() {
+  const seq = ++state.searchSeq;
+  if (state.searchAbort) state.searchAbort.abort();
+  state.searchAbort = new AbortController();
+  const { signal } = state.searchAbort;
+
+  const q = val("q");
+  const hint0 = q ? `正在检索「${q.slice(0, 18)}${q.length > 18 ? "…" : ""}」…` : "正在按筛选条件查询…";
+  setSearching(true, hint0);
+
+  try {
+    let filterQs = queryParams().toString();
+    const sort = val("sort"); const order = val("order");
+    const listMeta = { page: state.page, pageSize: state.pageSize, sort, order };
+
+    let plan = buildScanPlan();
+    // 有检索词且可分片 → 真扫描；手机/邮箱/信用代码走全国单次（分省反而更慢）
+    // 无词全国分片会拖垮 COUNT，也走单次
+    const useUnits = !!(q && plan.units && plan.units.length > 1 && !isExactLeadQuery());
+    beginRealFlow(
+      useUnits ? plan : { ...plan, units: null, mode: plan.mode || "单域检索" },
+      hint0
+    );
+
+    let data;
+    if (useUnits) {
+      data = await searchByUnits(plan, filterQs, listMeta, signal);
+    } else {
+      const listP = new URLSearchParams(filterQs);
+      if (sort) listP.set("sort", sort);
+      if (order) listP.set("order", order);
+      listP.set("page", String(state.page));
+      listP.set("page_size", String(state.pageSize));
+      const label = plan.scope || "检索域";
+      document.getElementById("dataflowFocus").innerHTML = `<span>${escHtml(label)}</span>`;
+      document.getElementById("dataflowStage").textContent = "请求中";
+      document.getElementById("dataflowCursor").textContent = "0";
+      document.getElementById("dataflowTotal").textContent = "1";
+      const t0 = performance.now();
+      data = await jget("/api/search?" + listP.toString(), signal);
+      flowMarkUnit(label, {
+        done: 1, total: 1, hits: Number(data.total) || 0,
+        ms: performance.now() - t0, stage: "列表返回",
+      });
+      state.dataflow.hitAcc = Number(data.total) || 0;
+    }
+    if (seq !== state.searchSeq) return;
+
+    // 地域限制 0 命中时放宽到全国，再走真实分省扫描
+    if ((data.total || 0) === 0 && q && (val("province") || val("city"))) {
+      setSearching(true, "本省市无命中，正在放宽到全国重试…");
+      ["province", "city", "district", "street"].forEach(id => {
+        document.getElementById(id).value = "";
+      });
+      document.getElementById("city").innerHTML = '<option value="">全部</option>';
+      document.getElementById("district").innerHTML = '<option value="">全部</option>';
+      document.getElementById("street").innerHTML = '<option value="">全部</option>';
+      filterQs = queryParams().toString();
+      plan = buildScanPlan();
+      beginRealFlow(plan, "全国分片重试中…");
+      if (plan.units && plan.units.length > 1) {
+        data = await searchByUnits(plan, filterQs, listMeta, signal);
+      } else {
+        const retryP = new URLSearchParams(filterQs);
+        if (sort) retryP.set("sort", sort);
+        if (order) retryP.set("order", order);
+        retryP.set("page", String(state.page));
+        retryP.set("page_size", String(state.pageSize));
+        data = await jget("/api/search?" + retryP.toString(), signal);
+      }
+      if (seq !== state.searchSeq) return;
+    }
+
+    state.total = data.total;
+    document.getElementById("pageInfo").innerHTML =
+      `共 <span>${fmt(data.total)}</span> 家 · 第 ${data.page} 页`;
+    document.getElementById("pageNum").textContent = data.page;
+    document.getElementById("s_total").textContent = fmt(data.total);
+
+    const banner = document.getElementById("matchBanner");
+    if (data.q_kind_label && val("q")) {
+      banner.classList.add("on");
+      banner.textContent = `${data.q_kind_label} · 已自动关联公司与联系方式`;
+    } else {
+      banner.classList.remove("on");
+      banner.textContent = "";
+    }
+
+    renderResultRows(data.items);
+
+    if (data.fromUnits && data.by_province) {
+      bars(document.getElementById("chart_prov"), data.by_province);
+    }
+
+    const sp = new URLSearchParams(filterQs);
+    document.getElementById("dataflowStage").textContent = "汇总统计";
+    setSearching(true, "列表已就绪，正在汇总统计…");
+    const st = await jget("/api/stats?" + sp.toString(), signal);
+    if (seq !== state.searchSeq) return;
+
+    const s = st.summary || {};
+    if (!data.fromUnits) {
+      if (s.total == null || Number(s.total) === Number(data.total)) {
+        document.getElementById("s_total").textContent = fmt(s.total != null ? s.total : data.total);
+      } else {
+        document.getElementById("s_total").textContent = fmt(data.total);
+      }
+      bars(document.getElementById("chart_prov"), st.by_province || []);
+    } else {
+      document.getElementById("s_total").textContent = fmt(data.total);
+      if (!data.by_province || !data.by_province.length) {
+        bars(document.getElementById("chart_prov"), st.by_province || []);
+      }
+    }
+    document.getElementById("s_mobile").textContent = fmt(s.with_mobile);
+    document.getElementById("s_email").textContent = fmt(s.with_email);
+    document.getElementById("s_contact").textContent = fmt(s.with_contact);
+    bars(document.getElementById("chart_ind"), st.by_industry || []);
+    pushFlowLog(`完成 · 合计命中 ${fmt(data.total)}`, true);
+    syncListUrl();
+    if (state.detailCode) {
+      const row = document.querySelector(`#tbody tr[data-code="${CSS.escape(state.detailCode)}"]`);
+      if (row) row.classList.add("active");
+    }
+  } catch (e) {
+    if (isAbortError(e) || seq !== state.searchSeq) return;
+    throw e;
+  } finally {
+    if (seq === state.searchSeq) setSearching(false);
+  }
+}
+
+function triggerSearch() {
+  state.page = 1;
+  return search().catch(e => {
+    if (!isAbortError(e)) alert(e.message || e);
+  });
+}
+
+async function openDetail(code, keepEditing = false) {
+  const d = await jget("/api/company/" + encodeURIComponent(code));
+  const c = d.company;
+  state.detailCode = c.credit_code;
+  state.detail = d;
+  document.getElementById("d_name").innerHTML = copyable(c.company_name || "—");
+  document.getElementById("d_code").innerHTML = copyable(c.credit_code || "");
+  renderView(c);
+  fillEditForm(c);
+  setEditing(keepEditing);
+  const panel = document.getElementById("detail");
+  panel.classList.remove("empty");
+  document.querySelectorAll("#tbody tr.active").forEach(tr => tr.classList.remove("active"));
+  const row = document.querySelector(`#tbody tr[data-code="${CSS.escape(c.credit_code)}"]`);
+  if (row) row.classList.add("active");
+}
+
+function clearDetail() {
+  state.detailCode = "";
+  state.detail = null;
+  setEditing(false);
+  document.getElementById("detail").classList.add("empty");
+  document.getElementById("d_name").textContent = "—";
+  document.getElementById("d_code").textContent = "";
+  document.getElementById("d_kv").innerHTML = "";
+  document.getElementById("d_contacts").innerHTML = "—";
+  document.getElementById("d_scope").textContent = "";
+  document.querySelectorAll("#tbody tr.active").forEach(tr => tr.classList.remove("active"));
+}
+
+function renderContacts(contacts) {
+  const typeMap = { mobile: "手机", landline: "座机", email: "邮箱" };
+  const el = document.getElementById("d_contacts");
+  if (!contacts.length) {
+    el.innerHTML = state.editing
+      ? '<div class="muted">暂无联系方式，可在下方添加</div>'
+      : '<div class="muted">暂无联系方式</div>';
+    return;
+  }
+  el.innerHTML = contacts.map(x => `
+    <div class="contact-item">
+      <span class="contact-type">${typeMap[x.contact_type] || x.contact_type}</span>
+      ${copyable(x.contact_value)}
+      <span class="muted">${escHtml(x.source || "")}</span>
+      <button class="del" type="button"
+        data-type="${escHtml(x.contact_type)}" data-value="${escHtml(x.contact_value)}">删除</button>
+    </div>`).join("");
+}
+
+async function saveCompany(extra = {}) {
+  if (!state.detailCode) return;
+  const body = {
+    status: document.getElementById("e_status").value,
+    legal_person: document.getElementById("e_legal").value.trim(),
+    scale: document.getElementById("e_scale").value || null,
+    address: document.getElementById("e_address").value.trim(),
+    website: document.getElementById("e_website").value.trim(),
+    province: document.getElementById("e_province").value.trim(),
+    city: document.getElementById("e_city").value.trim(),
+    district: document.getElementById("e_district").value.trim(),
+    street: document.getElementById("e_street").value.trim(),
+    industry_l1: document.getElementById("e_industry").value.trim(),
+    ...extra,
+  };
+  const cap = document.getElementById("e_capital").value.trim();
+  if (cap !== "") body.capital_wan = Number(cap);
+  await jsend("/api/company/" + encodeURIComponent(state.detailCode), "PUT", body);
+  toast("已保存");
+  await openDetail(state.detailCode, false);
+  search().catch(() => {});
+}
+
+document.getElementById("btnEdit").onclick = () => setEditing(true);
+document.getElementById("btnCancelEdit").onclick = () => {
+  if (state.detail) fillEditForm(state.detail.company);
+  setEditing(false);
+};
+
+document.getElementById("btnSaveCompany").onclick = () => saveCompany().catch(e => alert(e.message));
+document.getElementById("btnSaveScope").onclick = () =>
+  saveCompany({ scope: document.getElementById("e_scope").value }).catch(e => alert(e.message));
+
+document.getElementById("btnAddContact").onclick = async () => {
+  if (!state.detailCode) return;
+  const contact_type = document.getElementById("e_ctype").value;
+  const contact_value = document.getElementById("e_cvalue").value.trim();
+  if (!contact_value) return alert("请输入联系方式");
+  try {
+    await jsend(
+      "/api/company/" + encodeURIComponent(state.detailCode) + "/contacts",
+      "POST",
+      { contact_type, contact_value }
+    );
+    document.getElementById("e_cvalue").value = "";
+    toast("联系方式已添加");
+    await openDetail(state.detailCode, true);
+    search().catch(() => {});
+  } catch (e) {
+    alert(e.message);
+  }
+};
+
+document.getElementById("d_contacts").onclick = async e => {
+  const btn = e.target.closest("button.del");
+  if (!btn || !state.detailCode || !state.editing) return;
+  e.stopPropagation();
+  if (!confirm("确认删除该联系方式？")) return;
+  const qs = new URLSearchParams({
+    contact_type: btn.dataset.type,
+    contact_value: btn.dataset.value,
+  });
+  try {
+    await jsend(
+      "/api/company/" + encodeURIComponent(state.detailCode) + "/contacts?" + qs,
+      "DELETE"
+    );
+    toast("已删除");
+    await openDetail(state.detailCode, true);
+    search().catch(() => {});
+  } catch (err) {
+    alert(err.message);
+  }
+};
+
+document.getElementById("reach").addEventListener("click", e => {
+  const chip = e.target.closest(".chip");
+  if (!chip) return;
+  const k = chip.dataset.k;
+  state.reach[k] = !state.reach[k];
+  chip.classList.toggle("on", !!state.reach[k]);
+});
+
+document.getElementById("qFields").addEventListener("click", e => {
+  const chip = e.target.closest(".chip");
+  if (!chip) return;
+  const f = chip.dataset.f;
+  if (f === "auto") {
+    state.qAuto = true;
+    state.qFields = new Set();
+  } else if (f === "all") {
+    state.qAuto = false;
+    const allOn = Q_FIELD_KEYS.every(k => state.qFields.has(k));
+    state.qFields = allOn ? new Set(["company"]) : new Set(Q_FIELD_KEYS);
+  } else if (Q_FIELD_KEYS.includes(f)) {
+    state.qAuto = false;
+    if (state.qFields.has(f)) {
+      if (state.qFields.size > 1) state.qFields.delete(f);
+    } else {
+      state.qFields.add(f);
+    }
+  }
+  syncQFieldUI();
+});
+
+document.getElementById("btnSearch").onclick = () => triggerSearch();
+document.getElementById("btnReset").onclick = async () => {
+  ["q","province","city","district","street","industry_l1","scale","capital_min","capital_max",
+   "age_min","age_max","insured_min","insured_max","scope_kw","addr_kw"].forEach(id => {
+    document.getElementById(id).value = "";
+  });
+  document.getElementById("status").value = "存续";
+  state.reach = {};
+  document.querySelectorAll("#reach .chip").forEach(c => c.classList.remove("on"));
+  state.qAuto = false;
+  state.qFields = new Set(["company"]);
+  syncQFieldUI();
+  state.page = 1;
+  await applyDefaultRegion();
+  triggerSearch();
+};
+document.getElementById("btnExport").onclick = () => {
+  const p = queryParams();
+  window.open("/api/export?" + p.toString(), "_blank");
+};
+document.getElementById("prev").onclick = () => {
+  if (state.page > 1) { state.page--; search().catch(e => { if (!isAbortError(e)) alert(e.message || e); }); }
+};
+document.getElementById("next").onclick = () => {
+  const max = Math.ceil(state.total / state.pageSize) || 1;
+  if (state.page < max) { state.page++; search().catch(e => { if (!isAbortError(e)) alert(e.message || e); }); }
+};
+document.getElementById("province").onchange = () => loadCities().then(() => {});
+document.getElementById("city").onchange = () => loadDistricts();
+document.getElementById("district").onchange = () => loadStreets();
+document.getElementById("sort").onchange = () => triggerSearch();
+document.getElementById("order").onchange = () => triggerSearch();
+
+// 回车查询；新查询会打断上一轮未完成的请求
+["q", "scope_kw", "addr_kw", "capital_min", "capital_max", "age_min", "age_max",
+ "insured_min", "insured_max"].forEach(id => {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.addEventListener("keydown", e => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      triggerSearch();
+    }
+  });
+});
+document.getElementById("tbody").onclick = e => {
+  const copyEl = e.target.closest("[data-copy]");
+  if (copyEl) {
+    e.stopPropagation();
+    copyText(copyEl.dataset.copy);
+    return;
+  }
+  const tr = e.target.closest("tr[data-code]");
+  if (tr) openDetail(tr.dataset.code).catch(alert);
+};
+document.getElementById("detail").addEventListener("click", e => {
+  if (e.target.closest("button, input, select, textarea")) return;
+  const copyEl = e.target.closest("[data-copy]");
+  if (!copyEl) return;
+  e.preventDefault();
+  e.stopPropagation();
+  copyText(copyEl.dataset.copy);
+});
+document.getElementById("closeDrawer").onclick = () => clearDetail();
+
+(async () => {
+  try {
+    syncQFieldUI();
+    const h = await jget("/api/health");
+    document.getElementById("health").textContent =
+      h.ok ? `Doris 就绪 · ${fmt(h.companies)} 家 · 街道 ${fmt(h.with_street)}` : "Doris 未就绪";
+    await loadFacets();
+    await applyUrlToFilters();
+    await search();
+  } catch (e) {
+    document.getElementById("health").textContent = "连接失败：" + e.message;
+  }
+})();
+</script>
+</body>
+</html>
