@@ -25,7 +25,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.stdout.reconfigure(encoding="utf-8")
 
-import doris_client as dc
+import app.doris_client as dc
 
 COLS = ["credit_code", "lng", "lat", "geo_precision", "geocoded_at", "fill_score"]
 
@@ -47,7 +47,7 @@ def fetch_candidates(
     provinces: list[str] | None = None,
 ) -> list[dict]:
     """只拉能命中街道/区县中心的企业，避免 miss 反复占满 LIMIT。"""
-    from admin_alias import admin_city_match_sql
+    from app.admin_alias import admin_city_match_sql
 
     mobile = "AND c.has_mobile = 1" if only_mobile else ""
     prov_sql = ""
@@ -126,7 +126,7 @@ def remaining_count(
 
 
 def load_street_centers() -> dict[tuple[str, str, str, str], tuple[float, float]]:
-    from admin_alias import expand_city_names
+    from app.admin_alias import expand_city_names
 
     rows = dc.query("""
         SELECT province, city, district, street, center_lng, center_lat
@@ -148,7 +148,7 @@ def load_street_centers() -> dict[tuple[str, str, str, str], tuple[float, float]
 
 
 def load_district_centers() -> dict[tuple[str, str, str], tuple[float, float]]:
-    from admin_alias import expand_city_names
+    from app.admin_alias import expand_city_names
 
     rows = dc.query("""
         SELECT province, city, district, center_lng, center_lat
@@ -175,7 +175,7 @@ def resolve_point(
     districts: dict,
     fallback: str,
 ) -> tuple[float, float, str] | None:
-    from admin_alias import expand_city_names, is_direct_admin_city
+    from app.admin_alias import expand_city_names, is_direct_admin_city
 
     prov = (row.get("province") or "").strip()
     city = (row.get("city") or "").strip()

@@ -5,7 +5,8 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-SECRETS = Path(__file__).resolve().parent / "secrets" / "amap.env"
+# secrets/ 位于仓库根目录（app/ 的上一级）
+SECRETS = Path(__file__).resolve().parents[1] / "secrets" / "amap.env"
 
 
 def load_amap_env() -> dict[str, str]:

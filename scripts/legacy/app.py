@@ -13,13 +13,19 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 sys.stdout.reconfigure(encoding="utf-8")
 
+_HERE = Path(__file__).resolve().parent
+_ROOT = _HERE.parents[1]
+if str(_HERE) not in sys.path:
+    sys.path.insert(0, str(_HERE))
+
+
 from config import DB_PATH, PLATFORM_DIR, STATS_PATH
 
 _STATS_CACHE = None
 
 HOST = "0.0.0.0"
 PORT = 8765
-TEMPLATE_PATH = PLATFORM_DIR / "templates" / "index.html"
+TEMPLATE_PATH = PLATFORM_DIR / "app" / "templates" / "index.html"
 
 
 def db() -> sqlite3.Connection:

@@ -22,6 +22,14 @@ from pathlib import Path
 sys.stdout.reconfigure(encoding="utf-8")
 sys.stderr.reconfigure(encoding="utf-8")
 
+_HERE = Path(__file__).resolve().parent
+_SCRIPTS = _HERE.parent
+_ROOT = _HERE.parents[1]
+for _p in (_ROOT, _SCRIPTS, _HERE):
+    if str(_p) not in sys.path:
+        sys.path.insert(0, str(_p))
+
+
 from config import (
     BIZ_LINES,
     CITY_CENTROID,
@@ -37,7 +45,7 @@ from config import (
     TOP_CSV_PATH,
     STATS_PATH,
 )
-from xlsx_stream import iter_workbook_sheets
+from scripts.xlsx_stream import iter_workbook_sheets
 from add_street import extract_street
 
 TODAY = date(2026, 9, 1)

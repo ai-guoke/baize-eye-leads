@@ -4,7 +4,7 @@ from pathlib import Path
 
 ROOT = Path(r"F:\企查查大数据")
 SRC_INDUSTRY = ROOT / "2025年最新产业链企业相关数据"
-PLATFORM_DIR = Path(__file__).resolve().parent
+PLATFORM_DIR = Path(__file__).resolve().parents[2]  # repo root
 OUTPUT_DIR = PLATFORM_DIR / "output"
 DB_PATH = OUTPUT_DIR / "leads.db"
 CSV_PATH = OUTPUT_DIR / "线索池_带评分.csv"

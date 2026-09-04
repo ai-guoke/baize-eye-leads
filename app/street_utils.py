@@ -70,13 +70,13 @@ def load_admin_streets(rows: Iterable[dict] | None = None, force: bool = False) 
         return sum(len(v) for v in _STREET_INDEX.values())
 
     if rows is None:
-        import doris_client as dc
+        from app import doris_client as dc
         rows = dc.query(
             "SELECT city, district, street FROM admin_divisions "
             "WHERE level = 'street' AND street IS NOT NULL AND street != ''"
         )
 
-    from admin_alias import expand_city_names
+    from app.admin_alias import expand_city_names
 
     idx: dict[tuple[str, str], set[str]] = {}
     for r in rows:
@@ -149,7 +149,7 @@ def match_admin_street(province: str, city: str, district: str, address: str) ->
     if not s:
         return ""
 
-    from admin_alias import street_index_keys
+    from app.admin_alias import street_index_keys
 
     keys = street_index_keys(city, district)
     # 兼容旧逻辑：空区键

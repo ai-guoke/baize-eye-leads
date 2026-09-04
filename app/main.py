@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """白泽之眼 · 工商大数据线索池 API（Doris 后端）。
 
-白泽云析旗下产品。启动：uvicorn api:app --host 0.0.0.0 --port 8765
+白泽云析旗下产品。启动：
+  python -m uvicorn app.main:app --host 0.0.0.0 --port 8765
 """
 from __future__ import annotations
 
@@ -19,14 +20,15 @@ from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 from pydantic import BaseModel
 
-import doris_client as dc
-from admin_alias import expand_city_names, sql_city_in as _sql_city_in
-from amap_config import load_amap_env
+from app import doris_client as dc
+from app.admin_alias import expand_city_names, sql_city_in as _sql_city_in
+from app.amap_config import load_amap_env
 
-PLATFORM = Path(__file__).resolve().parent
-TEMPLATE = PLATFORM / "templates" / "index.html"
-MAP_TEMPLATE = PLATFORM / "templates" / "map.html"
-STATIC = PLATFORM / "static"
+APP_DIR = Path(__file__).resolve().parent
+REPO_ROOT = APP_DIR.parent
+TEMPLATE = APP_DIR / "templates" / "index.html"
+MAP_TEMPLATE = APP_DIR / "templates" / "map.html"
+STATIC = APP_DIR / "static"
 
 app = FastAPI(title="白泽之眼 · 工商大数据线索池", version="2.1")
 app.add_middleware(
@@ -1647,4 +1649,4 @@ def tasks_today(
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("api:app", host="0.0.0.0", port=8765, reload=False)
+    uvicorn.run("app.main:app", host="0.0.0.0", port=8765, reload=False)

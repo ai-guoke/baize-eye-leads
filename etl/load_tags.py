@@ -11,7 +11,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.stdout.reconfigure(encoding="utf-8")
 
-import doris_client as dc
+import app.doris_client as dc
 
 LEADS_DB = Path(__file__).resolve().parent.parent / "output" / "leads.db"
 BATCH = 5000

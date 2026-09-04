@@ -18,8 +18,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.stdout.reconfigure(encoding="utf-8")
 
-import doris_client as dc
-from street_utils import extract_street, load_admin_streets
+import app.doris_client as dc
+from app.street_utils import extract_street, load_admin_streets
 
 BATCH = 20000
 COLS = ["credit_code", "street", "fill_score"]

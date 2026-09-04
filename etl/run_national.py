@@ -21,7 +21,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 sys.stdout.reconfigure(encoding="utf-8")
 
-import doris_client as dc
+import app.doris_client as dc
 from etl.load_jzh import ROOT, STATE, discover_province_folders, JZH_GROUPS, state_key
 
 

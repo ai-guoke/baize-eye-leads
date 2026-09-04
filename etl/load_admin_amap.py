@@ -22,8 +22,8 @@ import argparse
 
 import requests
 
-import doris_client as dc
-from amap_config import load_amap_env
+import app.doris_client as dc
+from app.amap_config import load_amap_env
 
 JZH_PROVINCES = ["江苏省", "浙江省", "上海市", "安徽省"]
 ALL_PROVINCES = [

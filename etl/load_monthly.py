@@ -17,14 +17,14 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.stdout.reconfigure(encoding="utf-8")
 
-import doris_client as dc
-from xlsx_stream import iter_rows, load_shared_strings, sheet_map
+import app.doris_client as dc
+from scripts.xlsx_stream import iter_rows, load_shared_strings, sheet_map
 from etl.load_jzh import (
     COMPANY_COLS, CONTACT_COLS, CREDIT_RE, MOBILE_RE, DIGITS_RE,
     PROVINCE_MAP, clean, tb, parse_date, parse_capital, split_multi,
     surrogate_credit, TODAY,
 )
-from street_utils import extract_street, load_admin_streets
+from app.street_utils import extract_street, load_admin_streets
 
 FILE = Path(r"F:\企查查大数据\全国所有企业工商信息(1)\2025.04月.xlsx")
 SOURCE = "monthly2025"

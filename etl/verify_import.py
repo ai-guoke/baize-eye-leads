@@ -8,7 +8,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.stdout.reconfigure(encoding="utf-8")
 
-import doris_client as dc
+import app.doris_client as dc
 
 TARGET_ENTITIES = 12_958_769
 TARGET_REACH = 85.07

@@ -30,9 +30,14 @@ import numpy as np
 
 sys.stdout.reconfigure(encoding="utf-8")
 
-from xlsx_stream import iter_rows, load_shared_strings, sheet_map
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
-PLATFORM_DIR = Path(__file__).resolve().parent
+
+from scripts.xlsx_stream import iter_rows, load_shared_strings, sheet_map
+
+PLATFORM_DIR = Path(__file__).resolve().parents[1]
 OUT = PLATFORM_DIR / "output"
 LEADS_DB = OUT / "leads.db"
 

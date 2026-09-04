@@ -78,7 +78,7 @@ cd baize-eye-leads
 
 python -m venv .venv
 .\.venv\Scripts\activate
-pip install fastapi uvicorn pydantic httpx
+pip install -r requirements.txt
 
 copy secrets\amap.env.example secrets\amap.env
 # 编辑 secrets\amap.env，填入 AMAP_JS_KEY / AMAP_SECURITY_CODE / AMAP_WEB_KEY
@@ -86,34 +86,40 @@ copy secrets\amap.env.example secrets\amap.env
 
 ### 启动 Doris 与 API
 
+在仓库根目录执行（保证 `import app` 可用）：
+
 ```powershell
 cd docker
 docker compose up -d
 cd ..
 
 # 按 sql/、etl/ 导入自有工商数据后：
-python -m uvicorn api:app --host 0.0.0.0 --port 8765
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8765
 ```
+
+也可双击 `scripts\一键构建并启动.bat`（会切到仓库根再启动 API）。
 
 | 页面 | 地址 |
 |------|------|
 | 列表检索 | http://127.0.0.1:8765 |
 | 地图拓客 | http://127.0.0.1:8765/map |
 
-更多运维说明见 [README_DORIS.md](README_DORIS.md)。数据清洗约定见 [docs/数据清洗规则.md](docs/数据清洗规则.md)。
+更多运维说明见 [docs/ops-doris.md](docs/ops-doris.md)。数据清洗约定见 [docs/数据清洗规则.md](docs/数据清洗规则.md)。
 
 ---
 
 ## 目录结构
 
 ```
-api.py / doris_client.py   # 查询 API
-templates/                 # 列表页、地图页
-etl/                       # 导入、街道回填、地理编码
-sql/                       # Doris 建表
-docs/                      # 规则文档与截图
-docker/                    # Doris Compose
-secrets/                   # 本地密钥（仅 *.example 入库）
+app/                 # FastAPI 应用（main.py + Doris 客户端 + 页面模板/静态资源）
+etl/                 # 数据导入、街道回填、地理编码
+sql/                 # Doris 建表脚本
+docker/              # Doris Compose
+docs/                # 文档与截图
+scripts/             # 运维脚本、xlsx 工具
+scripts/legacy/      # 旧版 SQLite 看板（已弃用，仅归档）
+secrets/             # 本地密钥（仅 *.example 入库）
+requirements.txt
 ```
 
 ---

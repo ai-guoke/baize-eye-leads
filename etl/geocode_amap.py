@@ -22,8 +22,8 @@ import requests
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.stdout.reconfigure(encoding="utf-8")
 
-import doris_client as dc
-from amap_config import load_amap_env
+import app.doris_client as dc
+from app.amap_config import load_amap_env
 
 GEO_URL = "https://restapi.amap.com/v3/geocode/geo"
 COLS = ["credit_code", "lng", "lat", "geo_precision", "geocoded_at", "fill_score"]

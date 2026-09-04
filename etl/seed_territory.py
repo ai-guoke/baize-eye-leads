@@ -4,7 +4,7 @@ from datetime import datetime
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.stdout.reconfigure(encoding="utf-8")
-import doris_client as dc
+import app.doris_client as dc
 
 now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 # Stream Load 会把空串当成 NULL；本表 street 为 NOT NULL，改用 SQL 插入

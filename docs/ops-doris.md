@@ -16,16 +16,19 @@
 
 ## 常用命令
 
+在**仓库根目录**执行：
+
 ```powershell
-cd 线索池平台\docker
+cd docker
 docker compose up -d
+cd ..
 
 python etl\load_jzh.py --workers 8
 python etl\load_monthly.py
 python etl\load_tags.py
 python etl\backfill_street.py
 python etl\geocode_amap.py --limit 10000   # 需 AMAP_WEB_KEY
-python -m uvicorn api:app --host 0.0.0.0 --port 8765
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8765
 ```
 
 ## 密钥
