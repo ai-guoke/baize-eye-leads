@@ -1,59 +1,97 @@
 # Baize Eye Leads · 白泽之眼
 
-**白泽云析**旗下 [工商大数据](https://github.com/ai-guoke/baize-eye-leads) 线索池。
+<p align="center">
+  <strong>白泽云析</strong> · 工商大数据线索池<br/>
+  多维检索 · 四级区划 · 地图拓客
+</p>
 
-汇聚工商登记主体与联系方式，提供多维检索、省市区街筛选与地图拓客，方便销售 / 运营做线索圈选。
+<p align="center">
+  <a href="https://github.com/ai-guoke/baize-eye-leads"><img alt="GitHub" src="https://img.shields.io/badge/GitHub-ai--guoke%2Fbaize--eye--leads-0d6b55?logo=github" /></a>
+  <img alt="Stack" src="https://img.shields.io/badge/Stack-Doris%20%2B%20FastAPI%20%2B%20高德-1a7a4c" />
+  <img alt="License" src="https://img.shields.io/badge/License-MIT-blue" />
+</p>
 
-> 仓库名：`baize-eye-leads` · 产品名：白泽之眼
+把全国工商主体与触达信息沉到一套可检索、可圈选、可地图作业的线索池里——给销售拓客、区域调研、线索清洗用。
 
-## 能力一览
+> 本仓库为**开源软件与文档**，不包含工商原始库。演示截图来自本地 Doris 环境，联系方式等敏感字段已做展示处理。
 
-- **检索**：公司名 / 法人 / 手机 / 邮箱 / 信用代码 / 经营范围 / 地址（可多维 OR）
-- **筛选**：省市区街、行业、规模、登记状态、触达方式
-- **列表**：命中统计、省份 / 行业分布、企业详情与联系方式
-- **地图拓客**：视野聚合、区域侧栏、地点搜索（高德）
+---
+
+## 界面预览
+
+### 关键词检索 + 命中分布
+
+公司名等多维检索，统计卡片与省 / 行业分布同步更新，右侧常驻企业详情。
+
+![列表检索](docs/screenshots/01-list-search.png)
+
+### 区域圈选（苏州示例）
+
+省市区街筛选后，对百万级存续主体做触达概览与排序列表。
+
+![苏州列表](docs/screenshots/02-list-suzhou.png)
+
+### 地图拓客
+
+高德底图 + 区县聚合气泡：家数、均值资本一目了然，点击下钻到街道 / 单企。
+
+![苏州地图](docs/screenshots/03-map-suzhou.png)
+
+---
+
+## 能做什么
+
+| 模块 | 说明 |
+|------|------|
+| **检索** | 公司名 / 法人 / 手机 / 邮箱 / 信用代码 / 经营范围 / 地址，支持多维 OR |
+| **筛选** | 省市区街、行业、规模、登记状态、触达方式 |
+| **列表** | 命中统计、省份 / 行业分布、详情栏、CSV 导出 |
+| **地图** | 视野聚合、区域侧栏、地点搜索、与列表筛选互通 |
+| **扫描动效** | 全国关键词检索可按省真实分片，日志展示各省命中与耗时 |
+
+---
 
 ## 技术栈
 
 | 层 | 选型 |
 |----|------|
-| 分析库 | Apache Doris |
+| 分析库 | [Apache Doris](https://doris.apache.org/) |
 | API | FastAPI + Uvicorn |
 | 前端 | 原生 HTML / JS（列表 + 地图） |
 | 地图 | 高德 JS API 2.0 |
 
+---
+
 ## 快速开始
 
-### 1. 环境
+### 环境要求
 
 - Python 3.10+
 - Docker（启动 Doris，见 `docker/`）
 - 高德开放平台 Key（地图功能）
 
+### 安装与密钥
+
 ```powershell
+git clone https://github.com/ai-guoke/baize-eye-leads.git
 cd baize-eye-leads
+
 python -m venv .venv
 .\.venv\Scripts\activate
 pip install fastapi uvicorn pydantic httpx
-```
 
-### 2. 密钥
-
-```powershell
 copy secrets\amap.env.example secrets\amap.env
 # 编辑 secrets\amap.env，填入 AMAP_JS_KEY / AMAP_SECURITY_CODE / AMAP_WEB_KEY
 ```
 
-### 3. 启动 Doris
+### 启动 Doris 与 API
 
 ```powershell
 cd docker
 docker compose up -d
-```
+cd ..
 
-按 `sql/` 与 `etl/` 文档导入工商数据后：
-
-```powershell
+# 按 sql/、etl/ 导入自有工商数据后：
 python -m uvicorn api:app --host 0.0.0.0 --port 8765
 ```
 
@@ -62,6 +100,10 @@ python -m uvicorn api:app --host 0.0.0.0 --port 8765
 | 列表检索 | http://127.0.0.1:8765 |
 | 地图拓客 | http://127.0.0.1:8765/map |
 
+更多运维说明见 [README_DORIS.md](README_DORIS.md)。数据清洗约定见 [docs/数据清洗规则.md](docs/数据清洗规则.md)。
+
+---
+
 ## 目录结构
 
 ```
@@ -69,15 +111,23 @@ api.py / doris_client.py   # 查询 API
 templates/                 # 列表页、地图页
 etl/                       # 导入、街道回填、地理编码
 sql/                       # Doris 建表
-docs/                      # 数据清洗规则等
+docs/                      # 规则文档与截图
 docker/                    # Doris Compose
-secrets/                   # 本地密钥（不入库，仅 *.example）
+secrets/                   # 本地密钥（仅 *.example 入库）
 ```
+
+---
 
 ## 数据与合规
 
-本仓库**不包含**工商原始库与联系方式样本。你需要自行准备合法授权的数据源，并遵守当地个人信息与数据安全法规。清洗约定见 [docs/数据清洗规则.md](docs/数据清洗规则.md)。
+- 仓库**不附带**工商原始数据与联系方式样本。
+- 请使用合法授权数据源，并遵守个人信息保护与数据安全相关法规。
+- `secrets/amap.env`、`output/` 等本地产物已在 `.gitignore` 中排除。
+
+---
 
 ## 许可
 
-见 [LICENSE](LICENSE)。
+[MIT](LICENSE) © 白泽云析 / ai-guoke
+
+欢迎 Issue / PR。若本项目对你有帮助，欢迎 Star。
