@@ -327,7 +327,12 @@ def build_where(
         parts.append(f"t.tag_fit = '{_esc(tag_fit)}'")
     if chain:
         need_tags = True
-        parts.append(f"array_contains(t.chain_industries, '{_esc(chain)}')")
+        ce = _esc(chain)
+        # 兼容旧数据把多产业链塞进单个 ARRAY 元素（用 | 拼接）
+        parts.append(
+            f"(array_contains(t.chain_industries, '{ce}') "
+            f"OR array_join(IFNULL(t.chain_industries, []), ' | ') LIKE '%{ce}%')"
+        )
     if exclude_blocked:
         parts.append(
             f"c.credit_code NOT IN ("
@@ -728,6 +733,29 @@ def facets():
         GROUP BY industry_l1 ORDER BY n DESC
         """
     )
+    # 产业链：EXPLODE 后拆「A | B」旧格式，合并计数
+    chain_raw = dc.query(
+        """
+        SELECT x AS k, COUNT(*) AS n
+        FROM tags LATERAL VIEW EXPLODE(chain_industries) t AS x
+        WHERE x IS NOT NULL AND x != ''
+        GROUP BY x
+        ORDER BY n DESC
+        LIMIT 200
+        """
+    )
+    chain_bucket: dict[str, int] = {}
+    for r in chain_raw:
+        raw = (r.get("k") or "").strip()
+        n = int(r.get("n") or 0)
+        parts = [p.strip() for p in re.split(r"\s*\|\s*", raw) if p.strip()] or ([raw] if raw else [])
+        for p in parts:
+            chain_bucket[p] = chain_bucket.get(p, 0) + n
+    chains = [
+        {"k": k, "n": n}
+        for k, n in sorted(chain_bucket.items(), key=lambda x: -x[1])[:80]
+    ]
+
     return {
         "provinces": provinces,
         "scales": dc.query(
@@ -739,6 +767,7 @@ def facets():
             "WHERE status IS NOT NULL GROUP BY status ORDER BY n DESC"
         ),
         "industries": industries,
+        "chains": chains,
     }
 
 
@@ -1243,14 +1272,21 @@ EXPORT_HEADERS = [
     ("industry_l1", "行业门类"),
     ("industry_l2", "行业大类"),
     ("industry_l3", "行业中类"),
+    ("industry_l4", "行业小类"),
     ("insured_count", "参保人数"),
     ("former_name", "曾用名"),
+    ("en_name", "英文名"),
     ("tax_id", "纳税人识别号"),
     ("reg_no", "工商注册号"),
     ("org_code", "组织机构代码"),
     ("address", "注册地址"),
     ("address_report", "年报地址"),
+    ("address_mail", "通信地址"),
     ("website", "官网"),
+    ("registrar", "登记机关"),
+    ("taxpayer_qual", "纳税人资质"),
+    ("report_year", "最新年报年份"),
+    ("intro", "企业简介"),
     ("scope", "经营范围"),
     ("mobiles", "手机"),
     ("landlines", "座机"),
@@ -1348,9 +1384,10 @@ def export_csv(
                c.capital_wan, c.capital_raw, c.capital_paid_wan,
                c.established, c.approved, c.company_age,
                c.province, c.city, c.district, c.street, c.company_type,
-               c.industry_l1, c.industry_l2, c.industry_l3,
-               c.insured_count, c.former_name, c.tax_id, c.reg_no, c.org_code,
-               c.address, c.address_report, c.website, c.scope,
+               c.industry_l1, c.industry_l2, c.industry_l3, c.industry_l4,
+               c.insured_count, c.former_name, c.en_name, c.tax_id, c.reg_no, c.org_code,
+               c.address, c.address_report, c.address_mail, c.website, c.scope,
+               c.registrar, c.taxpayer_qual, c.intro, c.report_year,
                c.has_mobile, c.has_landline, c.has_email,
                c.mobile_count, c.email_count, c.lng, c.lat
         {frm} WHERE {where}

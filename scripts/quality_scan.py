@@ -94,7 +94,10 @@ DATASETS: dict[str, dict] = {
     },
 }
 
-EMPTY = {"", "-", "--", "—", "–", "无", "null", "none", "n/a", "na", "/", "\\", "暂无", "未知"}
+EMPTY = {
+    "", "-", "--", "—", "–", "无", "null", "none", "n/a", "na", "/", "\\",
+    "暂无", "未知", "nan", "null值", "*", "**", "???",
+}
 CREDIT_RE = re.compile(r"^[0-9A-Z]{18}$")
 CAPITAL_RE = re.compile(r"([0-9]+(?:\.[0-9]+)?)\s*(万|亿)?\s*([\u4e00-\u9fa5]{2,4})?")
 MULTI_SPLIT = re.compile(r"[,，;；、\s|]+")

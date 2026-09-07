@@ -18,8 +18,12 @@ venv/
 output/
 *.xlsx
 *.xls
+*.csv
 *.csv.gz
 *.parquet
+
+# local-only ops notes (paths / cluster facts)
+docs/lab-report*.md
 
 # editor / OS
 .idea/
@@ -29,10 +33,12 @@ output/
 Thumbs.db
 Desktop.ini
 
-# ad-hoc local probes (keep out of public tree)
-_probe*.py
-_check*.py
-_explore*.py
-_run_*.py
-_test_*.py
-_bench*.py
+# ad-hoc local probes at repo root only (archived copies under scripts/archive are OK)
+/_probe*.py
+/_check*.py
+/_explore*.py
+/_run_*.py
+/_test_*.py
+/_bench*.py
+/_lab_*.py
+!scripts/archive/**

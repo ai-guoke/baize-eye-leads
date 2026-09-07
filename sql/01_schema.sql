@@ -42,6 +42,7 @@ CREATE TABLE companies (
     industry_l1      VARCHAR(64)           COMMENT '国标行业门类',
     industry_l2      VARCHAR(64)           COMMENT '国标行业大类',
     industry_l3      VARCHAR(64)           COMMENT '国标行业中类',
+    industry_l4      VARCHAR(64)           COMMENT '国标行业小类',
 
     insured_count    INT                   COMMENT '参保人数，填充率 83.86%',
     insured_year     VARCHAR(8)            COMMENT '参保数所属年报年份',
@@ -56,6 +57,10 @@ CREATE TABLE companies (
     address_report   VARCHAR(500)          COMMENT '最新年报地址',
     address_mail     STRING                COMMENT '通信地址，原文可能是 \t;\t 分隔的多值',
     website          VARCHAR(300),
+    registrar        VARCHAR(200)          COMMENT '登记机关',
+    taxpayer_qual    VARCHAR(64)           COMMENT '纳税人资质',
+    intro            STRING                COMMENT '企业简介',
+    report_year      VARCHAR(8)            COMMENT '最新年报年份',
     scope            STRING                COMMENT '经营范围，实测均长 533B、最长约 1600 字符',
 
     -- 触达标志位：冗余在主表，让「有手机号的企业」这类高频筛选不必 JOIN contacts

@@ -563,6 +563,23 @@
     padding: 12px 14px; background: #f5f8f6; border-radius: 8px;
     border: 1px solid var(--line-soft); max-height: 280px; overflow: auto;
   }
+  .tag-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; }
+  .tag-chip {
+    font-size: 12px; line-height: 1.3; padding: 4px 9px;
+    border-radius: 6px; background: var(--accent-soft); color: var(--accent);
+    border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+    cursor: pointer; max-width: 100%; word-break: break-word;
+  }
+  .tag-chip.honor {
+    background: #f7f3ea; color: #7a5c28;
+    border-color: #e4d7b8;
+  }
+  .tag-chip.node {
+    background: #f0f3f7; color: #3d4f63;
+    border-color: #d5dde6;
+  }
+  .tag-meta { font-size: 12px; color: var(--muted); line-height: 1.55; margin: 0 0 6px; }
+  .tag-empty { font-size: 12px; color: var(--muted); }
 
   .hint { font-size: 11px; color: var(--muted); margin-top: 4px; line-height: 1.4; }
   .match-banner {
@@ -658,6 +675,9 @@
 
     <label>国标行业门类</label>
     <select id="industry_l1"><option value="">全部</option></select>
+
+    <label>产业链</label>
+    <select id="chain"><option value="">全部</option></select>
 
     <label>企业规模</label>
     <select id="scale"><option value="">全部</option></select>
@@ -842,6 +862,11 @@
         </div>
       </div>
 
+      <div class="detail-sec" id="sec_tags" hidden>
+        <div class="sec-title">产业链与荣誉</div>
+        <div class="view-only" id="d_tags"></div>
+      </div>
+
       <div class="sec-title">联系方式</div>
       <div id="d_contacts" class="contact-list muted">—</div>
       <div class="add-contact edit-only">
@@ -852,6 +877,17 @@
         </select>
         <input id="e_cvalue" placeholder="输入号码或邮箱" />
         <button type="button" id="btnAddContact">添加</button>
+      </div>
+
+      <div class="sec-title">标识与资质</div>
+      <div class="info-grid view-only" id="d_ids"></div>
+
+      <div class="sec-title">地址与网络</div>
+      <div class="info-grid view-only" id="d_addr"></div>
+
+      <div class="detail-sec" id="sec_intro" hidden>
+        <div class="sec-title">企业简介</div>
+        <div class="scope-box view-only" id="d_intro"></div>
       </div>
 
       <div class="sec-title">经营范围</div>
@@ -1287,7 +1323,7 @@ function fillEditForm(c) {
 function val(id) { return document.getElementById(id).value.trim(); }
 
 /** 列表 / 地图共享的查询键（不含分页与呈现） */
-const QUERY_KEYS = ["q","province","city","district","street","industry_l1","scale","status",
+const QUERY_KEYS = ["q","province","city","district","street","industry_l1","chain","scale","status",
   "capital_min","capital_max","age_min","age_max","insured_min","insured_max",
   "scope_kw","addr_kw"];
 const REACH_KEYS = ["has_mobile","has_landline","has_email","has_contact"];
@@ -1313,13 +1349,14 @@ function params() {
 }
 
 function syncListUrl() {
+  // 不把筛选写入地址栏：刷新后应回到默认条件，而不是恢复上次查询
   const p = queryParams();
   const sort = val("sort"); const order = val("order");
   if (sort && sort !== "capital_wan") p.set("sort", sort);
   if (order && order !== "desc") p.set("order", order);
   if (state.page > 1) p.set("page", state.page);
   const qs = p.toString();
-  history.replaceState(null, "", qs ? ("/?" + qs) : "/");
+  if (location.search) history.replaceState(null, "", "/");
   const mapLink = document.getElementById("linkMap");
   if (mapLink) mapLink.href = qs ? ("/map?" + qs) : "/map";
 }
@@ -1487,25 +1524,10 @@ function money(n) {
   return v.toLocaleString("zh-CN", { maximumFractionDigits: 2 }) + " 万";
 }
 
-function renderView(c) {
-  const capitalShow = money(c.capital_wan) + (c.capital_raw ? `（${c.capital_raw}）` : "");
-  const capitalCopy = c.capital_raw || (c.capital_wan != null ? String(c.capital_wan) : "");
-  const region = [c.province, c.city, c.district, c.street].filter(Boolean).join(" / ") || "—";
-  const industry = [c.industry_l1, c.industry_l2, c.industry_l3].filter(Boolean).join(" / ") || "—";
-  const cells = [
-    { lab: "状态", val: c.status || "—", em: true },
-    { lab: "法人", val: c.legal_person || "—" },
-    { lab: "规模", val: c.scale || "—" },
-    { lab: "注册资本", val: capitalShow, copy: capitalCopy || capitalShow },
-    { lab: "成立", val: c.established || "—" },
-    { lab: "年限", val: c.company_age != null ? c.company_age + " 年" : "—", copy: c.company_age != null ? String(c.company_age) : "" },
-    { lab: "参保", val: c.insured_count != null ? String(c.insured_count) : "—" },
-    { lab: "网址", val: c.website || "—" },
-    { lab: "地域", val: region, span2: true },
-    { lab: "行业", val: industry, span2: true },
-    { lab: "地址", val: c.address || "—", span2: true },
-  ];
-  document.getElementById("d_kv").innerHTML = cells.map(x => {
+function renderKv(elId, cells) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  el.innerHTML = cells.map(x => {
     const copy = (x.copy != null ? x.copy : x.val);
     const can = copy && copy !== "—";
     return `
@@ -1514,19 +1536,140 @@ function renderView(c) {
       <div class="val${x.em ? " em" : ""}${can ? " copyable" : ""}"${can ? ` data-copy="${escHtml(copy)}" title="点击复制"` : ""}>${escHtml(x.val)}</div>
     </div>`;
   }).join("");
-  const scope = c.scope || "—";
-  const scopeEl = document.getElementById("d_scope");
-  if (scope && scope !== "—") {
-    scopeEl.className = "scope-box view-only copyable";
-    scopeEl.dataset.copy = scope;
-    scopeEl.title = "点击复制";
-    scopeEl.textContent = scope;
+}
+
+function fillTextBox(elId, text) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  const v = (text || "").trim();
+  if (v) {
+    el.classList.add("copyable");
+    el.dataset.copy = v;
+    el.title = "点击复制";
+    el.textContent = v;
   } else {
-    scopeEl.className = "scope-box view-only";
-    delete scopeEl.dataset.copy;
-    scopeEl.removeAttribute("title");
-    scopeEl.textContent = "—";
+    el.classList.remove("copyable");
+    delete el.dataset.copy;
+    el.removeAttribute("title");
+    el.textContent = "—";
   }
+}
+
+function splitTagList(v) {
+  if (v == null) return [];
+  let arr = [];
+  if (Array.isArray(v)) arr = v;
+  else {
+    const s = String(v).trim();
+    if (!s) return [];
+    try {
+      const j = JSON.parse(s);
+      if (Array.isArray(j)) arr = j;
+      else arr = [s];
+    } catch {
+      arr = [s];
+    }
+  }
+  const out = [];
+  arr.forEach(item => {
+    String(item).split(/\s*\|\s*/).forEach(p => {
+      const t = p.trim();
+      if (t && !out.includes(t)) out.push(t);
+    });
+  });
+  return out;
+}
+
+function setSectionVisible(secId, on) {
+  const sec = document.getElementById(secId);
+  if (!sec) return;
+  sec.hidden = !on;
+}
+
+function renderTags(tags) {
+  const el = document.getElementById("d_tags");
+  if (!el) return;
+  if (!tags) {
+    el.innerHTML = "";
+    setSectionVisible("sec_tags", false);
+    return;
+  }
+  const industries = splitTagList(tags.chain_industries);
+  const nodes = splitTagList(tags.chain_nodes).slice(0, 12);
+  const honors = splitTagList(tags.honors).slice(0, 16);
+  const meta = [
+    tags.chain_positions ? `位置 ${tags.chain_positions}` : "",
+    tags.relatedness ? `关联性 ${tags.relatedness}` : "",
+    tags.tag_finance || tags.financing_raw || "",
+  ].filter(Boolean).join(" · ");
+
+  let html = "";
+  if (meta) html += `<div class="tag-meta">${escHtml(meta)}</div>`;
+  if (industries.length) {
+    html += `<div class="tag-chips">${industries.map(t =>
+      `<span class="tag-chip" data-chain="${escHtml(t)}" title="筛选此产业链">${escHtml(t)}</span>`
+    ).join("")}</div>`;
+  }
+  if (honors.length) {
+    html += `<div class="tag-chips">${honors.map(t =>
+      `<span class="tag-chip honor" data-copy="${escHtml(t)}" title="点击复制">${escHtml(t)}</span>`
+    ).join("")}</div>`;
+  }
+  if (nodes.length) {
+    html += `<div class="tag-chips">${nodes.map(t =>
+      `<span class="tag-chip node" data-copy="${escHtml(t)}" title="点击复制">${escHtml(t)}</span>`
+    ).join("")}</div>`;
+  }
+  el.innerHTML = html;
+  setSectionVisible("sec_tags", Boolean(html));
+}
+
+function renderView(c, tags) {
+  const capitalShow = money(c.capital_wan) + (c.capital_raw ? `（${c.capital_raw}）` : "");
+  const capitalCopy = c.capital_raw || (c.capital_wan != null ? String(c.capital_wan) : "");
+  const paidShow = money(c.capital_paid_wan);
+  const region = [c.province, c.city, c.district, c.street].filter(Boolean).join(" / ") || "—";
+  const industry = [c.industry_l1, c.industry_l2, c.industry_l3, c.industry_l4].filter(Boolean).join(" / ") || "—";
+  renderKv("d_kv", [
+    { lab: "状态", val: c.status || "—", em: true },
+    { lab: "法人", val: c.legal_person || "—" },
+    { lab: "规模", val: c.scale || "—" },
+    { lab: "企业类型", val: c.company_type || "—" },
+    { lab: "注册资本", val: capitalShow, copy: capitalCopy || capitalShow },
+    { lab: "实缴资本", val: paidShow, copy: c.capital_paid_wan != null ? String(c.capital_paid_wan) : "" },
+    { lab: "成立", val: c.established || "—" },
+    { lab: "核准", val: c.approved || "—" },
+    { lab: "年限", val: c.company_age != null ? c.company_age + " 年" : "—", copy: c.company_age != null ? String(c.company_age) : "" },
+    { lab: "参保", val: c.insured_count != null ? String(c.insured_count) : "—" },
+    { lab: "营业期限", val: c.term_raw || "—", span2: true },
+    { lab: "地域", val: region, span2: true },
+    { lab: "行业", val: industry, span2: true },
+  ]);
+  renderKv("d_ids", [
+    { lab: "曾用名", val: c.former_name || "—", span2: true },
+    { lab: "英文名", val: c.en_name || "—", span2: true },
+    { lab: "纳税人识别号", val: c.tax_id || "—" },
+    { lab: "工商注册号", val: c.reg_no || "—" },
+    { lab: "组织机构代码", val: c.org_code || "—" },
+    { lab: "纳税人资质", val: c.taxpayer_qual || "—" },
+    { lab: "登记机关", val: c.registrar || "—", span2: true },
+    { lab: "年报年份", val: c.report_year || c.insured_year || "—" },
+  ]);
+  renderKv("d_addr", [
+    { lab: "注册地址", val: c.address || "—", span2: true },
+    { lab: "年报地址", val: c.address_report || "—", span2: true },
+    { lab: "通信地址", val: c.address_mail || "—", span2: true },
+    { lab: "网址", val: c.website || "—", span2: true },
+  ]);
+  fillTextBox("d_intro", c.intro || "");
+  setSectionVisible("sec_intro", Boolean((c.intro || "").trim()));
+  fillTextBox("d_scope", c.scope || "");
+  const scopeEl = document.getElementById("d_scope");
+  if (scopeEl) {
+    if ((c.scope || "").trim()) scopeEl.className = "scope-box view-only copyable";
+    else scopeEl.className = "scope-box view-only";
+  }
+  renderTags(tags);
 }
 
 function bars(el, rows) {
@@ -1552,6 +1695,7 @@ async function loadFacets() {
   fill("province", f.provinces || []);
   fill("scale", f.scales || []);
   fill("industry_l1", f.industries || []);
+  fill("chain", f.chains || []);
   state.facetProvinces = (f.provinces || []).map(r => r.k).filter(Boolean);
   if (!state.facetProvinces.length) state.facetProvinces = PROVINCE_FALLBACK.slice();
 }
@@ -1749,7 +1893,7 @@ async function openDetail(code, keepEditing = false) {
   state.detail = d;
   document.getElementById("d_name").innerHTML = copyable(c.company_name || "—");
   document.getElementById("d_code").innerHTML = copyable(c.credit_code || "");
-  renderView(c);
+  renderView(c, d.tags);
   fillEditForm(c);
   setEditing(keepEditing);
   const panel = document.getElementById("detail");
@@ -1767,8 +1911,18 @@ function clearDetail() {
   document.getElementById("d_name").textContent = "—";
   document.getElementById("d_code").textContent = "";
   document.getElementById("d_kv").innerHTML = "";
+  const ids = document.getElementById("d_ids");
+  if (ids) ids.innerHTML = "";
+  const addr = document.getElementById("d_addr");
+  if (addr) addr.innerHTML = "";
+  const tags = document.getElementById("d_tags");
+  if (tags) tags.innerHTML = "";
+  setSectionVisible("sec_tags", false);
   document.getElementById("d_contacts").innerHTML = "—";
   document.getElementById("d_scope").textContent = "";
+  const intro = document.getElementById("d_intro");
+  if (intro) intro.textContent = "";
+  setSectionVisible("sec_intro", false);
   document.querySelectorAll("#tbody tr.active").forEach(tr => tr.classList.remove("active"));
 }
 
@@ -1953,6 +2107,25 @@ document.getElementById("tbody").onclick = e => {
 };
 document.getElementById("detail").addEventListener("click", e => {
   if (e.target.closest("button, input, select, textarea")) return;
+  const chainEl = e.target.closest("[data-chain]");
+  if (chainEl && chainEl.dataset.chain) {
+    e.preventDefault();
+    e.stopPropagation();
+    const sel = document.getElementById("chain");
+    if (sel) {
+      const v = chainEl.dataset.chain;
+      if (![...sel.options].some(o => o.value === v)) {
+        const o = document.createElement("option");
+        o.value = v; o.textContent = v;
+        sel.appendChild(o);
+      }
+      sel.value = v;
+      state.page = 1;
+      toast("已筛选产业链：" + v);
+      triggerSearch();
+    }
+    return;
+  }
   const copyEl = e.target.closest("[data-copy]");
   if (!copyEl) return;
   e.preventDefault();
@@ -1963,12 +2136,14 @@ document.getElementById("closeDrawer").onclick = () => clearDetail();
 
 (async () => {
   try {
+    // 刷新/打开列表页一律用默认筛选，不从 URL 恢复上次查询
+    if (location.search) history.replaceState(null, "", "/");
     syncQFieldUI();
     const h = await jget("/api/health");
     document.getElementById("health").textContent =
       h.ok ? `Doris 就绪 · ${fmt(h.companies)} 家 · 街道 ${fmt(h.with_street)}` : "Doris 未就绪";
     await loadFacets();
-    await applyUrlToFilters();
+    syncListUrl();
     await search();
   } catch (e) {
     document.getElementById("health").textContent = "连接失败：" + e.message;

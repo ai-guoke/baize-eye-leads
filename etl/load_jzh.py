@@ -51,98 +51,20 @@ SOURCE_NATIONAL = "national2024"
 COLLECTED_AT = "2024-11-01"   # 该批数据的截止时间，用于判断号码新鲜度
 TODAY = date.today()
 
-# ---------------------------------------------------------------- 清洗规则
+# ---------------------------------------------------------------- 清洗规则（唯一副本在 baize_core，此处 re-export 兼容旧 import）
 
-EMPTY = {"", "-", "--", "—", "–", "无", "null", "none", "n/a", "na", "/", "\\",
-         "暂无", "未知", "nan", "null值", "*", "**", "???"}
-
-CREDIT_RE = re.compile(r"^[0-9A-Z]{18}$")
-MOBILE_RE = re.compile(r"^1[3-9]\d{9}$")
-EMAIL_RE = re.compile(r"^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$")
-CAPITAL_RE = re.compile(r"([0-9]+(?:\.[0-9]+)?)\s*(万|亿)?\s*([\u4e00-\u9fa5]{2,4})?")
-MULTI_SPLIT = re.compile(r"[,，;；、\s|]+")
-DIGITS_RE = re.compile(r"\d")
-DATE_RE = re.compile(r"(\d{4})[-/年.](\d{1,2})[-/月.](\d{1,2})")
-YEAR_ONLY_RE = re.compile(r"^(\d{4})$")
-
-FX = {
-    "人民币": 1.0, "美元": 7.2, "美金": 7.2, "港元": 0.92, "港币": 0.92,
-    "欧元": 8.0, "日元": 0.048, "英镑": 9.5, "新加坡元": 5.5, "新元": 5.5,
-    "澳元": 4.7, "加元": 5.3, "韩元": 0.0052, "台币": 0.23, "新台币": 0.23,
-    "瑞士法郎": 8.1, "瑞典克朗": 0.68, "泰铢": 0.2, "卢布": 0.075,
-}
-
-PROVINCE_MAP = {
-    "江苏": "江苏省", "江苏省": "江苏省",
-    "浙江": "浙江省", "浙江省": "浙江省",
-    "安徽": "安徽省", "安徽省": "安徽省",
-    "上海": "上海市", "上海市": "上海市",
-    "北京": "北京市", "北京市": "北京市",
-    "天津": "天津市", "天津市": "天津市",
-    "重庆": "重庆市", "重庆市": "重庆市",
-    "广东": "广东省", "广东省": "广东省",
-    "福建": "福建省", "福建省": "福建省",
-    "山东": "山东省", "山东省": "山东省",
-    "河南": "河南省", "河南省": "河南省",
-    "河北": "河北省", "河北省": "河北省",
-    "湖北": "湖北省", "湖北省": "湖北省",
-    "湖南": "湖南省", "湖南省": "湖南省",
-    "江西": "江西省", "江西省": "江西省",
-    "四川": "四川省", "四川省": "四川省",
-    "云南": "云南省", "云南省": "云南省",
-    "贵州": "贵州省", "贵州省": "贵州省",
-    "山西": "山西省", "山西省": "山西省",
-    "陕西": "陕西省", "陕西省": "陕西省",
-    "辽宁": "辽宁省", "辽宁省": "辽宁省",
-    "吉林": "吉林省", "吉林省": "吉林省",
-    "黑龙江": "黑龙江省", "黑龙江省": "黑龙江省",
-    "海南": "海南省", "海南省": "海南省",
-    "甘肃": "甘肃省", "甘肃省": "甘肃省",
-    "青海": "青海省", "青海省": "青海省",
-    "广西": "广西壮族自治区", "广西壮族自治区": "广西壮族自治区",
-    "内蒙古": "内蒙古自治区", "内蒙古自治区": "内蒙古自治区",
-    "新疆": "新疆维吾尔自治区", "新疆维吾尔自治区": "新疆维吾尔自治区",
-    "宁夏": "宁夏回族自治区", "宁夏回族自治区": "宁夏回族自治区",
-    "西藏": "西藏自治区", "西藏自治区": "西藏自治区",
-}
-# 目录名 → 该文件的兜底省份，用于修复省份字段为空的行
-GROUP_PROVINCE = {
-    "江苏所有企业": "江苏省", "浙江所有企业": "浙江省",
-    "安徽所有企业": "安徽省",
-    "上海所有企业": "上海市", "上海所有企业-新版": "上海市",
-    "北京所有企业": "北京市", "天津所有企业": "天津市",
-    "河北所有企业": "河北省", "山西所有企业": "山西省",
-    "内蒙古所有企业": "内蒙古自治区",
-    "辽宁所有企业": "辽宁省", "吉林所有企业": "吉林省",
-    "黑龙江所有企业": "黑龙江省",
-    "广东所有企业（上）": "广东省", "广东所有企业（下）": "广东省",
-    "广西所有企业": "广西壮族自治区", "海南所有企业": "海南省",
-    "重庆所有企业": "重庆市", "四川所有企业": "四川省",
-    "贵州所有企业": "贵州省", "云南所有企业": "云南省",
-    "西藏所有企业": "西藏自治区",
-    "陕西所有企业": "陕西省", "甘肃所有企业": "甘肃省",
-    "青海所有企业": "青海省", "宁夏所有企业": "宁夏回族自治区",
-    "新疆所有企业": "新疆维吾尔自治区",
-    "福建所有企业": "福建省", "江西所有企业": "江西省",
-    "山东所有企业": "山东省", "河南所有企业-新版": "河南省",
-    "湖北所有企业": "湖北省", "湖南所有企业": "湖南省",
-}
-
-FOLDER_PROVINCE_RE = re.compile(r"^(.+?)所有企业")
-
-
-def folder_to_province(folder: str) -> str | None:
-    """从 xlsx 父目录名推断标准省份。"""
-    if folder in GROUP_PROVINCE:
-        return GROUP_PROVINCE[folder]
-    m = FOLDER_PROVINCE_RE.match(folder)
-    if not m:
-        return None
-    short = m.group(1)
-    for key in (short, short + "省", short + "市"):
-        if key in PROVINCE_MAP:
-            return PROVINCE_MAP[key]
-    return PROVINCE_MAP.get(short)
+from baize_core.cleaning import EMPTY, MULTI_SPLIT, clean, is_empty, split_multi, tb
+from baize_core.capital import CAPITAL_RE, FX, SOE_CAPITAL_RE, parse_capital
+from baize_core.contact import DIGITS_RE, EMAIL_RE, MOBILE_RE, norm_landline, norm_mail_address
+from baize_core.dates import DATE_RE, YEAR_ONLY_RE, parse_date
+from baize_core.identity import CREDIT_RE, surrogate_credit
+from baize_core.region import (
+    FOLDER_PROVINCE_RE,
+    GROUP_PROVINCE,
+    PROVINCE_MAP,
+    STATUS_MAP,
+    folder_to_province,
+)
 
 
 def discover_province_folders() -> set[str]:
@@ -153,15 +75,6 @@ def discover_province_folders() -> set[str]:
         d.name for d in ROOT.iterdir()
         if d.is_dir() and list(d.glob("*.xlsx"))
     }
-
-STATUS_MAP = {
-    "存续": "存续", "正常": "存续", "在业": "存续", "存续（在营、开业、在册）": "存续",
-    "存续/在业": "存续", "开业": "存续", "在营": "存续", "在册": "存续",
-    "迁出": "迁出", "迁入": "存续",
-    "注销": "注销", "已注销": "注销",
-    "吊销": "吊销", "吊销，未注销": "吊销", "吊销未注销": "吊销",
-    "吊销，已注销": "吊销", "撤销": "吊销", "清算": "清算", "停业": "停业",
-}
 
 # xlsx 表头 → 内部字段名
 COL = {
@@ -195,124 +108,6 @@ CONTACT_COLS = [
     "credit_code", "contact_type", "contact_value", "source",
     "company_name", "is_primary", "collected_at", "loaded_at",
 ]
-
-
-def is_empty(v: str) -> bool:
-    return (not v) or v.strip().lower() in EMPTY
-
-
-def clean(v: str) -> str | None:
-    if v is None:
-        return None
-    s = v.strip()
-    return None if s.lower() in EMPTY else s
-
-
-def tb(s: str | None, n: int) -> str | None:
-    """按字节截断——Doris 的 VARCHAR(n) 限的是字节数，不是字符数。"""
-    if s is None:
-        return None
-    b = s.encode("utf-8")
-    if len(b) <= n:
-        return s
-    return b[:n].decode("utf-8", errors="ignore")
-
-
-SOE_CAPITAL_RE = re.compile(
-    r"(国家电网|中央汇金|中国石油|中国石化|中国海油|国家开发银行|中国铁路|"
-    r"中国烟草|中国移动|中国电信|中国联通|工商银行|建设银行|农业银行|"
-    r"中国银行股份|交通银行|国家能源|南方电网|中国华能|华能集团|大唐集团|"
-    r"中国华电|华电集团|国家电投|中核集团|航天科技|航天科工|航空工业|"
-    r"中国中车|中国建筑|中国中铁|中国铁建|中国交建|中国电建|中国能建|"
-    r"中国铝业|中国宝武|招商局|中粮集团|保利集团|华润集团|华润\(|"
-    r"中国人寿|中国平安|中国人保|中国邮政|全国社保|国家管网|"
-    r"国家石油天然气|中国投资有限责任|国家集成电路|产业投资基金|"
-    r"山东高速|中国融通|中国诚通|中国国新|中国烟草总公司|"
-    r"中国铁路投资|中国铁路发展基金|中国工商银行|中国农业银行|"
-    r"中国建设银行|中国银行有限)"
-)
-
-
-def parse_capital(raw: str, company_name: str = "") -> tuple[float | None, str | None]:
-    """解析注册资本 → (人民币万元, 币种)。
-
-    例：'1000万美元' → (7200.00, '美元')；'500万元' → (500, '人民币')。
-    脏数据：'200000000万美元' —— 数字已是「元」量级却误标「万」。
-    纠偏：按万折合 ≥1 万亿，或 ≥1000 亿且非央企白名单，改按元计算。
-    """
-    if is_empty(raw):
-        return None, None
-    m = CAPITAL_RE.search(raw.strip().replace(",", ""))
-    if not m:
-        return None, None
-    try:
-        num = float(m.group(1))
-    except ValueError:
-        return None, None
-    unit = m.group(2) or ""
-    cur = m.group(3) or "人民币"
-    fx = FX.get(cur, 1.0)
-    mult = {"万": 1.0, "亿": 10000.0}.get(unit, 0.0001)
-    if unit == "万":
-        scaled = num * fx
-        is_soe = bool(SOE_CAPITAL_RE.search(company_name or ""))
-        if scaled >= 1e8 or (scaled >= 1e7 and not is_soe):
-            mult = 0.0001
-    wan = num * mult * fx
-    if wan > 5e8:
-        return None, cur
-    return round(wan, 2), cur
-
-
-def parse_date(raw: str) -> str | None:
-    if is_empty(raw):
-        return None
-    s = raw.strip()
-    m = DATE_RE.search(s)
-    if m:
-        y, mo, d = int(m.group(1)), int(m.group(2)), int(m.group(3))
-        if 1800 <= y <= 2100 and 1 <= mo <= 12 and 1 <= d <= 31:
-            return f"{y:04d}-{mo:02d}-{d:02d}"
-        return None
-    # Excel 有时把日期存成序列号
-    if s.isdigit() and 20000 <= int(s) <= 60000:
-        return (date(1899, 12, 30) + timedelta(days=int(s))).isoformat()
-    return None
-
-
-def split_multi(raw: str) -> list[str]:
-    if is_empty(raw):
-        return []
-    return [p for p in MULTI_SPLIT.split(raw.strip()) if p and not is_empty(p)]
-
-
-def norm_landline(v: str) -> str | None:
-    """座机保留 区号-号码 原形，只做合法性校验。"""
-    digits = "".join(DIGITS_RE.findall(v))
-    if not (7 <= len(digits) <= 13):
-        return None
-    if MOBILE_RE.match(digits):      # 手机号混在座机列里，交给手机分支处理
-        return None
-    return tb(v.strip(), 200)
-
-
-def norm_mail_address(raw: str) -> str | None:
-    """通信地址原文是 '地址A\\t;\\t地址B' 这种多值。"""
-    if is_empty(raw):
-        return None
-    parts = [p.strip() for p in re.split(r"[\t]*;[\t]*|\t", raw) if p.strip()]
-    seen, out = set(), []
-    for p in parts:
-        if is_empty(p) or p in seen:
-            continue
-        seen.add(p)
-        out.append(p)
-    return " | ".join(out) if out else None
-
-
-def surrogate_credit(name: str) -> str:
-    """信用代码缺失时的代理键，长度与真代码一致且不会撞车。"""
-    return "N" + hashlib.md5(name.encode("utf-8")).hexdigest()[:17].upper()
 
 
 # ---------------------------------------------------------------- 单文件处理
